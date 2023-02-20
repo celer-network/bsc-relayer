@@ -30,7 +30,7 @@ func InitLogger(config *config.LogConfig) {
 	backends := make([]logging.Backend, 0)
 
 	if config.UseConsoleLogger {
-		consoleFormat := logging.MustStringFormatter(`%{time:2006-01-02 15:04:05} %{level} %{shortfunc} %{message}`)
+		consoleFormat := logging.MustStringFormatter(`%{time:2006-01-02 15:04:05} %{level} %{shortfile} %{message}`)
 		consoleLogger := logging.NewLogBackend(os.Stdout, "", 0)
 		consoleFormatter := logging.NewBackendFormatter(consoleLogger, consoleFormat)
 		consoleLoggerLeveled := logging.AddModuleLevel(consoleFormatter)

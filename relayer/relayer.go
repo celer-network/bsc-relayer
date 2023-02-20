@@ -26,7 +26,8 @@ func NewRelayer(db *gorm.DB, cfg *config.Config, bbcExecutor *executor.BBCExecut
 
 func (r *Relayer) Start(startHeight uint64, curValidatorsHash cmn.HexBytes) {
 
-	r.registerRelayerHub()
+	// this relayer will not act as a real BC-BSC relayer
+	//r.registerRelayerHub()
 
 	if r.cfg.CrossChainConfig.CompetitionMode {
 		_, err := r.cleanPreviousPackages(startHeight)
@@ -43,7 +44,7 @@ func (r *Relayer) Start(startHeight uint64, curValidatorsHash cmn.HexBytes) {
 
 	go r.txTracker()
 
-	go r.autoClaimRewardDaemon()
+	//go r.autoClaimRewardDaemon()
 
 	if len(r.cfg.BSCConfig.MonitorDataSeedList) >= 2 {
 		go r.doubleSignMonitorDaemon()
