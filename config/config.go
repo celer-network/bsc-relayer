@@ -198,7 +198,7 @@ func (cfg *Config) Validate() {
 	cfg.AdminConfig.Validate()
 	cfg.LogConfig.Validate()
 	cfg.BBCConfig.Validate()
-	cfg.BSCConfig.Validate()
+	//cfg.BSCConfig.Validate()
 	cfg.AlertConfig.Validate()
 	cfg.DBConfig.Validate()
 }
