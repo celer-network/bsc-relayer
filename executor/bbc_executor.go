@@ -18,11 +18,14 @@ import (
 	"github.com/binance-chain/go-sdk/client/rpc"
 	ctypes "github.com/binance-chain/go-sdk/common/types"
 	"github.com/binance-chain/go-sdk/keys"
+	"github.com/ethereum/go-ethereum/rlp"
 	cmn "github.com/tendermint/tendermint/libs/common"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	tmtypes "github.com/tendermint/tendermint/types"
 )
+
+const StakingModuleChannelID = 8
 
 type BBCClient struct {
 	BBCClient     *rpc.HTTP
@@ -39,6 +42,43 @@ type BBCExecutor struct {
 	keyManager    keys.KeyManager
 	sourceChainID common.CrossChainID
 	destChainID   common.CrossChainID
+}
+
+type CrossChainPackage struct {
+	Height    uint64
+	ChannelID common.CrossChainChannelID
+	Sequence  uint64
+	Msg       []byte
+	Proof     []byte
+}
+
+type PackageType uint8
+
+const (
+	StakePackageType PackageType = 0x00
+	JailPackageType  PackageType = 0x01
+)
+
+type IbcValidator struct {
+	ConsAddr []byte
+	FeeAddr  []byte
+	DistAddr []byte
+	Power    uint64
+}
+
+type IbcValidatorSetPackage struct {
+	Type         PackageType
+	ValidatorSet []IbcValidator
+}
+
+func (ccp *CrossChainPackage) ToIbcValidateSetPackage() (bool, *IbcValidatorSetPackage) {
+	expectedPkg := new(IbcValidatorSetPackage)
+	err := rlp.DecodeBytes(ccp.Msg, expectedPkg)
+	if err != nil {
+		common.Logger.Errorf("failed to decode this msg to IbcValidatorSetPackage")
+		return false, nil
+	}
+	return true, expectedPkg
 }
 
 func getMnemonic(cfg *config.BBCConfig) (string, error) {
@@ -85,11 +125,11 @@ func NewBBCExecutor(cfg *config.Config, networkType ctypes.ChainNetwork) (*BBCEx
 	if len(cfg.BSCConfig.MonitorDataSeedList) >= 2 {
 		mnemonic, err := getMnemonic(&cfg.BBCConfig)
 		if err != nil {
-			panic(err.Error())
+			return nil, err
 		}
 		keyManager, err = keys.NewMnemonicKeyManager(mnemonic)
 		if err != nil {
-			panic(err.Error())
+			return nil, err
 		}
 	}
 
@@ -357,4 +397,119 @@ func (executor *BBCExecutor) GetNextSequence(channelID common.CrossChainChannelI
 	}
 	return binary.BigEndian.Uint64(response.Response.Value), nil
 
+}
+
+func (executor *BBCExecutor) GetPackage(channelID common.CrossChainChannelID, sequence, height uint64) ([]byte, []byte, error) {
+	key := buildCrossChainPackageKey(executor.sourceChainID, executor.destChainID, channelID, sequence)
+	var value []byte
+	var proofBytes []byte
+	var err error
+	for i := 0; i < maxTryTimes; i++ {
+		_, _, value, proofBytes, err = executor.QueryKeyWithProof(key, int64(height))
+		if err != nil {
+			return nil, nil, err
+		}
+		if len(value) == 0 {
+			common.Logger.Infof("Try again to get package, channelID %d, sequence %d", channelID, sequence)
+			time.Sleep(1 * time.Second) // wait 1s
+		} else {
+			break
+		}
+	}
+	if len(value) == 0 {
+		return nil, nil, fmt.Errorf("channelID %d, package with sequence %d is not existing", channelID, sequence)
+	}
+
+	return value, proofBytes, nil
+}
+
+func (executor *BBCExecutor) FindAllStakingModulePackages(height int64) ([]*CrossChainPackage, error) {
+	var blockResults *rpc.ResultBlockResults
+	var err error
+	for {
+		blockResults, err = executor.GetClient().BlockResults(&height)
+		if err != nil {
+			sleepTime := time.Duration(executor.Config.BBCConfig.SleepMillisecondForWaitBlock * int64(time.Millisecond))
+			time.Sleep(sleepTime)
+		} else {
+			break
+		}
+	}
+	packageSet := make([]*CrossChainPackage, 0)
+
+	for i, event := range blockResults.Results.EndBlock.Events {
+		if event.Type == CrossChainPackageEventType {
+			common.Logger.Infof("event %d from block %d is %s", i, height, event)
+			for _, tag := range event.Attributes {
+				if string(tag.Key) != CorssChainPackageInfoAttributeKey {
+					continue
+				}
+				items := strings.Split(string(tag.Value), separator)
+				if len(items) != 3 {
+					continue
+				}
+
+				destChainID, err := strconv.Atoi(items[0])
+				if err != nil {
+					continue
+				}
+				if uint16(destChainID) != executor.Config.CrossChainConfig.DestChainID {
+					continue
+				}
+
+				channelID, err := strconv.Atoi(items[1])
+				if err != nil {
+					continue
+				}
+				if channelID > math.MaxInt8 || channelID < 0 || channelID != StakingModuleChannelID {
+					continue
+				}
+
+				sequence, err := strconv.Atoi(items[2])
+				if err != nil {
+					continue
+				}
+				if sequence < 0 {
+					continue
+				}
+
+				msgBytes, proofBytes, err := executor.GetPackage(common.CrossChainChannelID(channelID), uint64(sequence), uint64(height))
+				if err != nil {
+					return nil, fmt.Errorf("GetPackage channelId %d sequence %d height %d, err:%s", channelID, sequence, height, err.Error())
+				}
+
+				packageSet = append(packageSet, &CrossChainPackage{
+					Height:    uint64(height),
+					ChannelID: common.CrossChainChannelID(channelID),
+					Sequence:  uint64(sequence),
+					Msg:       msgBytes,
+					Proof:     proofBytes,
+				})
+			}
+		}
+	}
+
+	return packageSet, nil
+}
+
+func (executor *BBCExecutor) CheckValidatorSetChange(height int64, preValidatorsHash cmn.HexBytes) (bool, cmn.HexBytes, error) {
+	validatorSetChanged := false
+
+	block, err := executor.GetClient().Block(&height)
+	if err != nil {
+		return false, nil, err
+	}
+
+	var curValidatorsHash cmn.HexBytes
+	if preValidatorsHash != nil {
+		if !bytes.Equal(block.Block.Header.ValidatorsHash, preValidatorsHash) ||
+			!bytes.Equal(block.Block.Header.ValidatorsHash, block.Block.Header.NextValidatorsHash) {
+			validatorSetChanged = true
+			curValidatorsHash = block.Block.Header.ValidatorsHash
+		} else {
+			curValidatorsHash = preValidatorsHash
+		}
+	}
+
+	return validatorSetChanged, curValidatorsHash, nil
 }
