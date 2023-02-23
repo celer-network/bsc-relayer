@@ -66,16 +66,30 @@ type IbcValidator struct {
 	Power    uint64
 }
 
+func (validator IbcValidator) String() string {
+	return fmt.Sprintf("Validator{ConsAddr:%x,FeeAddr:%x,DistAddr:%x,Power:%d}", validator.ConsAddr, validator.FeeAddr, validator.DistAddr, validator.Power)
+}
+
 type IbcValidatorSetPackage struct {
 	Type         PackageType
 	ValidatorSet []IbcValidator
 }
 
+func (pkg IbcValidatorSetPackage) String() string {
+	valSetStr := "["
+	for _, val := range pkg.ValidatorSet {
+		valSetStr += val.String() + ","
+	}
+	valSetStr = strings.TrimSuffix(valSetStr, ",")
+	valSetStr += "]"
+	return fmt.Sprintf("IbcValidatorSetPackage{PackageType:%d, ValidatorSet:%s}", pkg.Type, valSetStr)
+}
+
 func (ccp *CrossChainPackage) ToIbcValidateSetPackage() (bool, *IbcValidatorSetPackage) {
 	expectedPkg := new(IbcValidatorSetPackage)
-	err := rlp.DecodeBytes(ccp.Msg, expectedPkg)
+	err := rlp.DecodeBytes(ccp.Msg[33:], expectedPkg)
 	if err != nil {
-		common.Logger.Errorf("failed to decode this msg to IbcValidatorSetPackage")
+		common.Logger.Errorf("failed to decode this msg to IbcValidatorSetPackage, err:%s", err.Error())
 		return false, nil
 	}
 	return true, expectedPkg
@@ -426,7 +440,7 @@ func (executor *BBCExecutor) GetPackage(channelID common.CrossChainChannelID, se
 func (executor *BBCExecutor) FindAllStakingModulePackages(height int64) ([]*CrossChainPackage, error) {
 	var blockResults *rpc.ResultBlockResults
 	var err error
-	for {
+	for retry := 0; retry < maxTryTimes; retry++ {
 		blockResults, err = executor.GetClient().BlockResults(&height)
 		if err != nil {
 			sleepTime := time.Duration(executor.Config.BBCConfig.SleepMillisecondForWaitBlock * int64(time.Millisecond))

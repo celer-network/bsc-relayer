@@ -89,7 +89,8 @@ func (r *Relayer) MonitorBBCValidatorSetChange(config MonitorBBCvscConfig, callb
 }
 
 func (r *Relayer) MonitorStakingChannel(callback1 SyncBBCHeaderCallbackFunc, callback2 RelayCrossChainPackageCallbackFunc) {
-	height := r.getLatestHeight() - 1
+	//height := r.getLatestHeight() - 1
+	height := uint64(36498451)
 	common.Logger.Infof("Start monitor all packages in channel 8 from height %d", height)
 	for {
 		common.Logger.Infof("Finding packages in channel 8 in height %d", height)
@@ -114,10 +115,10 @@ func (r *Relayer) MonitorStakingChannel(callback1 SyncBBCHeaderCallbackFunc, cal
 
 		for _, pkg := range packageSet {
 			callback2(pkg.ChannelID, pkg.Height, pkg.Sequence, pkg.Msg, pkg.Proof)
-			common.Logger.Infof("cross chain package, channel %d, sequence %d, height %d, msg %s", pkg.ChannelID, pkg.Sequence, pkg.Height)
+			common.Logger.Infof("cross chain package, channel %d, sequence %d, height %d, msg %x", pkg.ChannelID, pkg.Sequence, pkg.Height, pkg.Msg)
 			// try to decode package
 			if ok, ibcValidatorSetPkg := pkg.ToIbcValidateSetPackage(); ok {
-				common.Logger.Infof("succeeded to decode this msg to IbcValidatorSetPackage. %v", ibcValidatorSetPkg)
+				common.Logger.Infof("succeeded to decode this msg to IbcValidatorSetPackage. %s", ibcValidatorSetPkg)
 			}
 		}
 		height = r.waitForNextBlock(height, true)
@@ -147,7 +148,7 @@ func (r *Relayer) MonitorBSCValidatorSetChange(callback1 SyncBBCHeaderCallbackFu
 				advance = true
 				for _, pkg := range packageSet {
 					if ok, ibcValidatorSetPkg := pkg.ToIbcValidateSetPackage(); ok {
-						common.Logger.Infof("succeeded to decode this msg to IbcValidatorSetPackage. %v", ibcValidatorSetPkg)
+						common.Logger.Infof("succeeded to decode this msg to IbcValidatorSetPackage. %s", ibcValidatorSetPkg)
 						header, err := r.bbcExecutor.QueryTendermintHeader(int64(height))
 						if err != nil {
 							advance = false
