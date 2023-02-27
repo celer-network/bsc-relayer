@@ -3,12 +3,16 @@ package relayer
 import (
 	"testing"
 
-	"github.com/binance-chain/bsc-relayer/common"
-	"github.com/binance-chain/bsc-relayer/executor"
+	"github.com/celer-network/bsc-relayer/common"
+	config "github.com/celer-network/bsc-relayer/config"
+	"github.com/celer-network/bsc-relayer/executor"
 )
 
 func TestRelayer(t *testing.T) {
-	r, err := NewRelayer(0, "../.config")
+	r, err := NewRelayer(0, &config.Config{
+		CrossChainConfig: config.CrossChainConfig{1, 97},
+		BBCConfig:        config.BBCConfig{[]string{"tcp://data-seed-pre-0-s1.binance.org:80"}, 500},
+	})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

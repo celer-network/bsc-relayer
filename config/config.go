@@ -21,10 +21,8 @@ type Config struct {
 }
 
 type CrossChainConfig struct {
-	SourceChainID      uint16  `json:"source_chain_id"`
-	DestChainID        uint16  `json:"dest_chain_id"`
-	MonitorChannelList []uint8 `json:"monitor_channel_list"`
-	CompetitionMode    bool    `json:"competition_mode"`
+	SourceChainID uint16 `json:"source_chain_id"`
+	DestChainID   uint16 `json:"dest_chain_id"`
 }
 
 func (cfg *CrossChainConfig) Validate() {
@@ -35,18 +33,18 @@ type BBCConfig struct {
 	SleepMillisecondForWaitBlock int64    `json:"sleep_millisecond_for_wait_block"`
 }
 
-func (cfg *BBCConfig) Validate() {
+func (cfg *BBCConfig) Validate() bool {
 	if len(cfg.RpcAddrs) == 0 {
-		panic("rpc endpoint of Binance chain should not be empty")
+		return false
 	}
 	if cfg.SleepMillisecondForWaitBlock < 0 {
-		panic("SleepMillisecondForWaitBlock must not be negative")
+		return false
 	}
+	return true
 }
 
-func (cfg *Config) Validate() {
-	cfg.CrossChainConfig.Validate()
-	cfg.BBCConfig.Validate()
+func (cfg *Config) Validate() bool {
+	return cfg.BBCConfig.Validate()
 }
 
 func ParseConfigFromJson(content string) *Config {
@@ -68,7 +66,9 @@ func ParseConfigFromFile(filePath string) *Config {
 		panic(err)
 	}
 
-	config.Validate()
+	if ok := config.Validate(); !ok {
+		return nil
+	}
 
 	return &config
 }

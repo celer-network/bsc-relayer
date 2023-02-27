@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/binance-chain/bsc-relayer/common"
-	config "github.com/binance-chain/bsc-relayer/config"
 	"github.com/binance-chain/go-sdk/client/rpc"
 	ctypes "github.com/binance-chain/go-sdk/common/types"
 	"github.com/binance-chain/go-sdk/keys"
+	"github.com/celer-network/bsc-relayer/common"
+	config "github.com/celer-network/bsc-relayer/config"
 	"github.com/celer-network/goutils/log"
 	ethcmm "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"

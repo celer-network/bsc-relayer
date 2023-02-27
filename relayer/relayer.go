@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/binance-chain/bsc-relayer/common"
-	config "github.com/binance-chain/bsc-relayer/config"
-	"github.com/binance-chain/bsc-relayer/executor"
 	"github.com/binance-chain/go-sdk/common/types"
+	"github.com/celer-network/bsc-relayer/common"
+	config "github.com/celer-network/bsc-relayer/config"
+	"github.com/celer-network/bsc-relayer/executor"
 	"github.com/celer-network/goutils/log"
 )
 
@@ -16,19 +16,12 @@ type Relayer struct {
 	BBCExecutor *executor.BBCExecutor
 }
 
-func NewRelayer(bbcNetworkType types.ChainNetwork, configFilePath string) (*Relayer, error) {
+func NewRelayer(bbcNetworkType types.ChainNetwork, cfg *config.Config) (*Relayer, error) {
 	if bbcNetworkType != types.TestNetwork && bbcNetworkType != types.TmpTestNetwork && bbcNetworkType != types.ProdNetwork {
 		return nil, fmt.Errorf("unknown bbc network type %d", int(bbcNetworkType))
 	}
-
-	var cfg *config.Config
-	if configFilePath == "" {
-		return nil, fmt.Errorf("empty config file path provided")
-	}
-	cfg = config.ParseConfigFromFile(configFilePath)
-
-	if cfg == nil {
-		return nil, fmt.Errorf("failed to parse configuration from file %s", configFilePath)
+	if cfg == nil || !cfg.Validate() {
+		return nil, fmt.Errorf("nil or invalid config")
 	}
 
 	bbcExecutor, err := executor.NewBBCExecutor(cfg, bbcNetworkType)
