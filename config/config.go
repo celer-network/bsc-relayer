@@ -2,9 +2,7 @@ package util
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -20,11 +18,7 @@ type ChannelConfig struct {
 type Config struct {
 	CrossChainConfig CrossChainConfig `json:"cross_chain_config"`
 	BBCConfig        BBCConfig        `json:"bbc_config"`
-	BSCConfig        BSCConfig        `json:"bsc_config"`
 	LogConfig        LogConfig        `json:"log_config"`
-	AdminConfig      AdminConfig      `json:"admin_config"`
-	AlertConfig      AlertConfig      `json:"alert_config"`
-	DBConfig         DBConfig         `json:"db_config"`
 }
 
 type CrossChainConfig struct {
@@ -37,89 +31,17 @@ type CrossChainConfig struct {
 func (cfg *CrossChainConfig) Validate() {
 }
 
-type AdminConfig struct {
-	ListenAddr string `json:"listen_addr"`
-}
-
-func (cfg *AdminConfig) Validate() {
-	if cfg.ListenAddr == "" {
-		panic("listen address should not be empty")
-	}
-}
-
 type BBCConfig struct {
-	RpcAddrs                                   []string `json:"rpc_addrs"`
-	MnemonicType                               string   `json:"mnemonic_type"`
-	AWSRegion                                  string   `json:"aws_region"`
-	AWSSecretName                              string   `json:"aws_secret_name"`
-	Mnemonic                                   string   `json:"mnemonic"`
-	SleepMillisecondForWaitBlock               int64    `json:"sleep_millisecond_for_wait_block"`
-	CleanUpBlockInterval                       uint64   `json:"clean_up_block_interval"`
-	BlockIntervalForCleanUpUndeliveredPackages uint64   `json:"block_interval_for_clean_up_undelivered_packages"`
-	BehindBlockThreshold                       uint64   `json:"behind_block_threshold"`
+	RpcAddrs                     []string `json:"rpc_addrs"`
+	SleepMillisecondForWaitBlock int64    `json:"sleep_millisecond_for_wait_block"`
 }
 
 func (cfg *BBCConfig) Validate() {
 	if len(cfg.RpcAddrs) == 0 {
 		panic("rpc endpoint of Binance chain should not be empty")
 	}
-	if cfg.MnemonicType == "" {
-		panic(fmt.Sprintf("mnemonic_type Binance Chain should not be empty"))
-	}
-	if cfg.MnemonicType != KeyTypeMnemonic && cfg.MnemonicType != KeyTypeAWSMnemonic {
-		panic(fmt.Sprintf("MnemonicType of Binance Chain only supports %s and %s", KeyTypeMnemonic, KeyTypeAWSMnemonic))
-	}
-	if cfg.MnemonicType == KeyTypeAWSMnemonic && cfg.AWSRegion == "" {
-		panic(fmt.Sprintf("aws_region of Binance Chain should not be empty"))
-	}
-	if cfg.MnemonicType == KeyTypeAWSMnemonic && cfg.AWSSecretName == "" {
-		panic(fmt.Sprintf("aws_secret_name of Binance Chain should not be empty"))
-	}
 	if cfg.SleepMillisecondForWaitBlock < 0 {
 		panic("SleepMillisecondForWaitBlock must not be negative")
-	}
-	if cfg.CleanUpBlockInterval == 0 {
-		panic("block interval for cleanup undelivered packages must not be zero")
-	}
-}
-
-type BSCConfig struct {
-	KeyType                string   `json:"key_type"`
-	AWSRegion              string   `json:"aws_region"`
-	AWSSecretName          string   `json:"aws_secret_name"`
-	PrivateKey             string   `json:"private_key"`
-	Providers              []string `json:"providers"`
-	GasLimit               uint64   `json:"gas_limit"`
-	GasPrice               uint64   `json:"gas_price"`
-	UnconfirmedTxThreshold uint64   `json:"unconfirmed_tx_threshold"`
-	MonitorDataSeedList    []string `json:"monitor_data_seed_list"`
-}
-
-func (cfg *BSCConfig) Validate() {
-	if len(cfg.Providers) == 0 {
-		panic(fmt.Sprintf("provider address of Binance Smart Chain should not be empty"))
-	}
-
-	if cfg.KeyType == "" {
-		panic(fmt.Sprintf("key_type Binance Smart Chain should not be empty"))
-	}
-	if cfg.KeyType != KeyTypeLocalPrivateKey && cfg.KeyType != KeyTypeAWSPrivateKey {
-		panic(fmt.Sprintf("key_type of Binance Smart Chain only supports %s and %s", KeyTypeLocalPrivateKey, KeyTypeAWSPrivateKey))
-	}
-	if cfg.KeyType == KeyTypeAWSPrivateKey && cfg.AWSRegion == "" {
-		panic(fmt.Sprintf("aws_region of Binance Smart Chain should not be empty"))
-	}
-	if cfg.KeyType == KeyTypeAWSPrivateKey && cfg.AWSSecretName == "" {
-		panic(fmt.Sprintf("aws_secret_name of Binance Smart Chain should not be empty"))
-	}
-	if cfg.KeyType != KeyTypeAWSPrivateKey && cfg.PrivateKey == "" {
-		panic(fmt.Sprintf("privateKey of Binance Smart Chain should not be empty"))
-	}
-	if cfg.GasLimit == 0 {
-		panic(fmt.Sprintf("gas_limit of Binance Smart Chain should be larger than 0"))
-	}
-	if cfg.UnconfirmedTxThreshold == 0 {
-		panic(fmt.Sprintf("unconfirmed_tx_threshold of Binance Smart Chain should be larger than 0"))
 	}
 }
 
@@ -148,59 +70,10 @@ func (cfg *LogConfig) Validate() {
 	}
 }
 
-type AlertConfig struct {
-	EnableAlert     bool  `json:"enable_alert"`
-	EnableHeartBeat bool  `json:"enable_heart_beat"`
-	Interval        int64 `json:"interval"`
-
-	Identity       string `json:"identity"`
-	TelegramBotId  string `json:"telegram_bot_id"`
-	TelegramChatId string `json:"telegram_chat_id"`
-
-	BalanceThreshold     string `json:"balance_threshold"`
-	SequenceGapThreshold uint64 `json:"sequence_gap_threshold"`
-}
-
-func (cfg *AlertConfig) Validate() {
-	if !cfg.EnableAlert {
-		return
-	}
-	if cfg.Interval <= 0 {
-		panic("alert interval should be positive")
-	}
-	balanceThreshold, ok := big.NewInt(1).SetString(cfg.BalanceThreshold, 10)
-	if !ok {
-		panic(fmt.Sprintf("unrecognized balance_threshold"))
-	}
-
-	if balanceThreshold.Cmp(big.NewInt(0)) <= 0 {
-		panic(fmt.Sprintf("balance_threshold should be positive"))
-	}
-
-	if cfg.SequenceGapThreshold <= 0 {
-		panic(fmt.Sprintf("sequence_gap_threshold should be positive"))
-	}
-}
-
-type DBConfig struct {
-	Dialect string `json:"dialect"`
-	DBPath  string `json:"db_path"`
-}
-
-func (cfg *DBConfig) Validate() {
-	if cfg.Dialect != DBDialectMysql && cfg.Dialect != DBDialectSqlite3 {
-		panic(fmt.Sprintf("only %s and %s supported", DBDialectMysql, DBDialectSqlite3))
-	}
-}
-
 func (cfg *Config) Validate() {
 	cfg.CrossChainConfig.Validate()
-	cfg.AdminConfig.Validate()
 	cfg.LogConfig.Validate()
 	cfg.BBCConfig.Validate()
-	//cfg.BSCConfig.Validate()
-	cfg.AlertConfig.Validate()
-	cfg.DBConfig.Validate()
 }
 
 func ParseConfigFromJson(content string) *Config {
