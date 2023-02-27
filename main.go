@@ -19,14 +19,14 @@ import (
 
 const (
 	flagConfigPath     = "config-path"
-	flagConfigType     = "config-type"
 	flagBBCNetworkType = "bbc-network-type"
+	flagLogLevel       = "log-level"
 )
 
 func initFlags() {
 	flag.String(flagConfigPath, "", "config file path")
-	flag.String(flagConfigType, "local_private_key", "config type, local_private_key or aws_private_key")
 	flag.Int(flagBBCNetworkType, int(types.TmpTestNetwork), "Binance chain network type")
+	flag.String(flagLogLevel, "info", "log level")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
@@ -37,8 +37,7 @@ func initFlags() {
 }
 
 func printUsage() {
-	fmt.Print("usage: ./bsc-relayer --config-type local --config-path configFile\n")
-	fmt.Print("usage: ./bsc-relayer --config-type aws --aws-region awsRegin --aws-secret-key awsSecretKey\n")
+	fmt.Print("usage: ./bsc-relayer --bbc-network-type 0 --config-path configFile\n --log-level debug")
 }
 
 func main() {
@@ -46,6 +45,9 @@ func main() {
 
 	bbcNetworkType := viper.GetInt(flagBBCNetworkType)
 	configFilePath := viper.GetString(flagConfigPath)
+	logLevel := viper.GetString(flagLogLevel)
+	log.Infof("log level %s", logLevel)
+	log.SetLevelByName(logLevel)
 	var cfg *config.Config
 	if configFilePath == "" {
 		log.Panic("empty config file path provided")
