@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/binance-chain/bsc-relayer/executor"
 	"github.com/binance-chain/go-sdk/common/types"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
@@ -52,8 +53,9 @@ func main() {
 		panic(err)
 	}
 	common.Logger.Info("Starting relayer")
-	relayerInstance.MonitorStakingChannel(
+	relayerInstance.MonitorValidatorSetChange(
+		0, []byte{}, []byte{},
 		func(header *common.Header) {},
-		func(channelID common.CrossChainChannelID, height, sequence uint64, msgBytes, proofBytes []byte) {},
+		func(pkg executor.CrossChainPackage) {},
 	)
 }

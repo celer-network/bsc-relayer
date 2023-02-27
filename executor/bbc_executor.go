@@ -2,10 +2,12 @@ package executor
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,6 +20,7 @@ import (
 	"github.com/binance-chain/go-sdk/client/rpc"
 	ctypes "github.com/binance-chain/go-sdk/common/types"
 	"github.com/binance-chain/go-sdk/keys"
+	ethcmm "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
 	cmn "github.com/tendermint/tendermint/libs/common"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
@@ -85,14 +88,38 @@ func (pkg IbcValidatorSetPackage) String() string {
 	return fmt.Sprintf("IbcValidatorSetPackage{PackageType:%d, ValidatorSet:%s}", pkg.Type, valSetStr)
 }
 
-func (ccp *CrossChainPackage) ToIbcValidateSetPackage() (bool, *IbcValidatorSetPackage) {
+func (ccp *CrossChainPackage) ParseBSCValidatorSet() (bool, []ethcmm.Address) {
 	expectedPkg := new(IbcValidatorSetPackage)
+	// prefix length is 33 bytes(1 byte for package type + 32 bytes for relayer fee)
 	err := rlp.DecodeBytes(ccp.Msg[33:], expectedPkg)
 	if err != nil {
 		common.Logger.Errorf("failed to decode this msg to IbcValidatorSetPackage, err:%s", err.Error())
 		return false, nil
 	}
-	return true, expectedPkg
+	bscValidatorSet := make([]ethcmm.Address, 0)
+	for _, val := range expectedPkg.ValidatorSet {
+		bscValidatorSet = append(bscValidatorSet, ethcmm.BytesToAddress(val.ConsAddr))
+	}
+	return true, bscValidatorSet
+}
+
+func FindBscValidatorSetChangePackage(curHash []byte, pkgs []*CrossChainPackage) (bool, []byte, *CrossChainPackage) {
+	for _, pkg := range pkgs {
+		if ok, set := pkg.ParseBSCValidatorSet(); ok {
+			sort.Slice(set, func(i, j int) bool {
+				return ethcmm.Bytes2Hex(set[i].Bytes()) < ethcmm.Bytes2Hex(set[j].Bytes())
+			})
+			sha := sha256.New()
+			for _, addr := range set {
+				sha.Write(addr.Bytes())
+			}
+			newHash := sha.Sum(nil)
+			if !bytes.Equal(curHash, newHash) {
+				return true, newHash, pkg
+			}
+		}
+	}
+	return false, curHash, nil
 }
 
 func getMnemonic(cfg *config.BBCConfig) (string, error) {
@@ -438,16 +465,9 @@ func (executor *BBCExecutor) GetPackage(channelID common.CrossChainChannelID, se
 }
 
 func (executor *BBCExecutor) FindAllStakingModulePackages(height int64) ([]*CrossChainPackage, error) {
-	var blockResults *rpc.ResultBlockResults
-	var err error
-	for retry := 0; retry < maxTryTimes; retry++ {
-		blockResults, err = executor.GetClient().BlockResults(&height)
-		if err != nil {
-			sleepTime := time.Duration(executor.Config.BBCConfig.SleepMillisecondForWaitBlock * int64(time.Millisecond))
-			time.Sleep(sleepTime)
-		} else {
-			break
-		}
+	blockResults, err := executor.GetClient().BlockResults(&height)
+	if err != nil {
+		return nil, err
 	}
 	packageSet := make([]*CrossChainPackage, 0)
 
@@ -489,16 +509,18 @@ func (executor *BBCExecutor) FindAllStakingModulePackages(height int64) ([]*Cros
 
 				msgBytes, proofBytes, err := executor.GetPackage(common.CrossChainChannelID(channelID), uint64(sequence), uint64(height))
 				if err != nil {
-					return nil, fmt.Errorf("GetPackage channelId %d sequence %d height %d, err:%s", channelID, sequence, height, err.Error())
+					common.Logger.Errorf("GetPackage channelId %d sequence %d height %d, err:%s", channelID, sequence, height, err.Error())
+					return nil, err
 				}
 
-				packageSet = append(packageSet, &CrossChainPackage{
+				pkg := &CrossChainPackage{
 					Height:    uint64(height),
 					ChannelID: common.CrossChainChannelID(channelID),
 					Sequence:  uint64(sequence),
 					Msg:       msgBytes,
 					Proof:     proofBytes,
-				})
+				}
+				packageSet = append(packageSet, pkg)
 			}
 		}
 	}

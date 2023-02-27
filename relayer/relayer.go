@@ -9,7 +9,6 @@ import (
 	config "github.com/binance-chain/bsc-relayer/config"
 	"github.com/binance-chain/bsc-relayer/executor"
 	"github.com/binance-chain/go-sdk/common/types"
-	common2 "github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	cmn "github.com/tendermint/tendermint/libs/common"
 )
@@ -61,117 +60,76 @@ func NewRelayer(bbcNetworkType types.ChainNetwork, configFilePath string) (*Rela
 
 type SyncBBCHeaderCallbackFunc func(header *common.Header)
 
-type MonitorBBCvscConfig struct {
-	InitValidatorsHash []byte
-}
+type RelayCrossChainPackageCallbackFunc func(pkg executor.CrossChainPackage)
 
-func (r *Relayer) MonitorBBCValidatorSetChange(config MonitorBBCvscConfig, callback SyncBBCHeaderCallbackFunc) {
-	curValidatorsHash := config.InitValidatorsHash
-	height := r.getLatestHeight()
-	for {
-		changed, curHash, err := r.bbcExecutor.CheckValidatorSetChange(int64(height), curValidatorsHash)
+func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []byte, callback1 SyncBBCHeaderCallbackFunc, callback2 RelayCrossChainPackageCallbackFunc) {
+	if height == 0 {
+		height = r.getLatestHeight()
+	}
+	if height == 0 {
+		return
+	}
+	//height := uint64(36498451)
+
+	common.Logger.Infof("Start monitor all packages in channel 8 from height %d", height)
+	advance := false
+	bbcChanged, bscChanged := false, false
+	var err error
+	// 1st header for bbc validator set change, at height
+	// 2nd header for ibc package(bsc validator set change), at height+1
+	var firstHeader, SecondHeader *common.Header
+	for ; ; height = r.waitForNextBlock(height, advance) {
+		// check bbc validator set
+		bbcChanged, bbcHash, err = r.bbcExecutor.CheckValidatorSetChange(int64(height), bbcHash)
 		if err != nil {
-			common.Logger.Errorf("CheckValidatorSetChange err:%s", err.Error())
+			advance = false
 			continue
 		}
-		curValidatorsHash = curHash
-		if changed {
-			header, err := r.bbcExecutor.QueryTendermintHeader(int64(height))
+		// get first bbc header
+		if bbcChanged {
+			firstHeader, err = r.bbcExecutor.QueryTendermintHeader(int64(height))
 			if err != nil {
-				common.Logger.Errorf("QueryTendermintHeader err:%s", err.Error())
+				advance = false
 				continue
 			}
-			callback(header)
-			common.Logger.Infof("tendermint header %s, validator set %s, next validator set %s", header.Header.StringIndented(""), header.ValidatorSet, header.NextValidatorSet)
 		}
-		height = r.waitForNextBlock(height, true)
-	}
-}
 
-func (r *Relayer) MonitorStakingChannel(callback1 SyncBBCHeaderCallbackFunc, callback2 RelayCrossChainPackageCallbackFunc) {
-	//height := r.getLatestHeight() - 1
-	height := uint64(36498451)
-	common.Logger.Infof("Start monitor all packages in channel 8 from height %d", height)
-	for {
-		common.Logger.Infof("Finding packages in channel 8 in height %d", height)
+		common.Logger.Debugf("Finding packages in channel 8 in height %d", height)
 		packageSet, err := r.bbcExecutor.FindAllStakingModulePackages(int64(height))
 		if err != nil {
-			common.Logger.Errorf("FindAllStakingModulePackages err:%s.", err.Error())
+			advance = false
 			continue
 		}
+		var pkg *executor.CrossChainPackage
+		bscChanged, bscHash, pkg = executor.FindBscValidatorSetChangePackage(bscHash, packageSet)
 
-		if len(packageSet) == 0 {
-			height++
-			continue // skip this height
-		}
-
-		header, err := r.bbcExecutor.QueryTendermintHeader(int64(height))
-		if err != nil {
-			common.Logger.Errorf("QueryTendermintHeader err:%s", err.Error())
-			continue
-		}
-		callback1(header)
-		common.Logger.Infof("tendermint header %s, validator set %s, next validator set %s", header.Header.StringIndented(""), header.ValidatorSet, header.NextValidatorSet)
-
-		for _, pkg := range packageSet {
-			callback2(pkg.ChannelID, pkg.Height, pkg.Sequence, pkg.Msg, pkg.Proof)
-			common.Logger.Infof("cross chain package, channel %d, sequence %d, height %d, msg %x", pkg.ChannelID, pkg.Sequence, pkg.Height, pkg.Msg)
-			// try to decode package
-			if ok, ibcValidatorSetPkg := pkg.ToIbcValidateSetPackage(); ok {
-				common.Logger.Infof("succeeded to decode this msg to IbcValidatorSetPackage. %s", ibcValidatorSetPkg)
+		// get second bbc header
+		if bscChanged {
+			SecondHeader, err = r.bbcExecutor.QueryTendermintHeader(int64(height) + 1)
+			if err != nil {
+				advance = false
+				continue
 			}
 		}
-		height = r.waitForNextBlock(height, true)
+
+		// after gotten all data, trigger callback function
+		if bbcChanged {
+			callback1(firstHeader)
+		}
+		if bscChanged {
+			callback1(SecondHeader)
+			callback2(*pkg)
+		}
+		advance = true
 	}
-}
-
-type RelayCrossChainPackageCallbackFunc func(channelID common.CrossChainChannelID, height, sequence uint64, msgBytes, proofBytes []byte)
-
-type MonitorBSCVSCConfig struct {
-	InitBBCValidatorsHash common2.Hash
-}
-
-func (r *Relayer) MonitorBSCValidatorSetChange(callback1 SyncBBCHeaderCallbackFunc, callback2 RelayCrossChainPackageCallbackFunc) {
-	present := time.Now()
-	midNight := time.Date(present.Year(), present.Month(), present.Day()+1, 0, 0, 0, 0, time.UTC)
-	time.AfterFunc(midNight.Sub(present), func() {
-		ticker := time.NewTicker(24 * time.Hour)
-		for {
-			curHeight := r.getLatestHeight()
-			advance := false
-			for height := curHeight - 1; height < curHeight+9; height = r.waitForNextBlock(height, advance) {
-				packageSet, err := r.bbcExecutor.FindAllStakingModulePackages(int64(height))
-				if err != nil {
-					common.Logger.Errorf("FindAllStakingModulePackages err:%s", err.Error())
-					continue
-				}
-				advance = true
-				for _, pkg := range packageSet {
-					if ok, ibcValidatorSetPkg := pkg.ToIbcValidateSetPackage(); ok {
-						common.Logger.Infof("succeeded to decode this msg to IbcValidatorSetPackage. %s", ibcValidatorSetPkg)
-						header, err := r.bbcExecutor.QueryTendermintHeader(int64(height))
-						if err != nil {
-							advance = false
-							common.Logger.Errorf("QueryTendermintHeader err:%s", err.Error())
-							break
-						}
-						callback1(header)
-						common.Logger.Infof("tendermint header %s, validator set %s, next validator set %s", header.Header.StringIndented(""), header.ValidatorSet, header.NextValidatorSet)
-						callback2(pkg.ChannelID, pkg.Height, pkg.Sequence, pkg.Msg, pkg.Proof)
-						common.Logger.Infof("cross chain package, channel %d, sequence %d, height %d, msg %s", pkg.ChannelID, pkg.Sequence, pkg.Height)
-					}
-				}
-			}
-			<-ticker.C
-		}
-	})
 }
 
 func (r *Relayer) waitForNextBlock(height uint64, advance bool) uint64 {
+	sleepTime := time.Duration(r.bbcExecutor.Config.BBCConfig.SleepMillisecondForWaitBlock * int64(time.Millisecond))
 	if !advance {
+		time.Sleep(sleepTime)
 		return height
 	}
-	sleepTime := time.Duration(r.bbcExecutor.Config.BBCConfig.SleepMillisecondForWaitBlock * int64(time.Millisecond))
 	for {
 		curHeight := r.getLatestHeight()
 		if curHeight > height {
@@ -186,12 +144,12 @@ func (r *Relayer) GetBBCStatus() (uint64, cmn.HexBytes, error) {
 	if err != nil {
 		return 0, nil, err
 	}
-	startHeight := abciInfo.Response.LastBlockHeight - 1
-	block, err := r.bbcExecutor.GetClient().Block(&(startHeight))
+	latestHeight := abciInfo.Response.LastBlockHeight
+	block, err := r.bbcExecutor.GetClient().Block(&(latestHeight))
 	if err != nil {
 		return 0, nil, err
 	}
-	return uint64(startHeight), block.BlockMeta.Header.ValidatorsHash, nil
+	return uint64(latestHeight), block.BlockMeta.Header.ValidatorsHash, nil
 }
 
 func (r *Relayer) Start(startHeight uint64, curValidatorsHash cmn.HexBytes) {
