@@ -8,6 +8,7 @@ import (
 	config "github.com/binance-chain/bsc-relayer/config"
 	"github.com/binance-chain/bsc-relayer/executor"
 	"github.com/binance-chain/go-sdk/common/types"
+	"github.com/celer-network/goutils/log"
 )
 
 type Relayer struct {
@@ -29,9 +30,6 @@ func NewRelayer(bbcNetworkType types.ChainNetwork, configFilePath string) (*Rela
 	if cfg == nil {
 		return nil, fmt.Errorf("failed to parse configuration from file %s", configFilePath)
 	}
-
-	//todo
-	common.InitLogger(&cfg.LogConfig)
 
 	bbcExecutor, err := executor.NewBBCExecutor(cfg, bbcNetworkType)
 	if err != nil {
@@ -56,7 +54,7 @@ func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []by
 		return
 	}
 
-	common.Logger.Infof("Start monitor all packages in channel 8 from height %d", height)
+	log.Infof("Start monitor all packages in channel 8 from height %d", height)
 	advance := false
 	bbcChanged, bscChanged := false, false
 	var err error
@@ -67,6 +65,7 @@ func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []by
 		// check bbc validator set
 		bbcChanged, bbcHash, err = r.BBCExecutor.CheckValidatorSetChange(int64(height), bbcHash)
 		if err != nil {
+			log.Errorf("CheckValidatorSetChange err:%s", err.Error())
 			advance = false
 			continue
 		}
@@ -74,14 +73,16 @@ func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []by
 		if bbcChanged {
 			firstHeader, err = r.BBCExecutor.QueryTendermintHeader(int64(height))
 			if err != nil {
+				log.Errorf("QueryTendermintHeader err:%s", err.Error())
 				advance = false
 				continue
 			}
 		}
 
-		common.Logger.Debugf("Finding packages in channel 8 in height %d", height)
+		log.Debugf("Finding packages in channel 8 in height %d", height)
 		packageSet, err := r.BBCExecutor.FindAllStakingModulePackages(int64(height))
 		if err != nil {
+			log.Errorf("FindAllStakingModulePackages err:%s", err.Error())
 			advance = false
 			continue
 		}
@@ -92,6 +93,7 @@ func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []by
 		if bscChanged {
 			SecondHeader, err = r.BBCExecutor.QueryTendermintHeader(int64(height) + 1)
 			if err != nil {
+				log.Errorf("QueryTendermintHeader err:%s", err.Error())
 				advance = false
 				continue
 			}
@@ -122,4 +124,13 @@ func (r *Relayer) waitForNextBlock(height uint64, advance bool) uint64 {
 		}
 		time.Sleep(sleepTime)
 	}
+}
+
+func (r *Relayer) getLatestHeight() uint64 {
+	abciInfo, err := r.BBCExecutor.GetClient().ABCIInfo()
+	if err != nil {
+		log.Errorf("Query latest height error: %s", err.Error())
+		return 0
+	}
+	return uint64(abciInfo.Response.LastBlockHeight)
 }

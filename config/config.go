@@ -18,7 +18,6 @@ type ChannelConfig struct {
 type Config struct {
 	CrossChainConfig CrossChainConfig `json:"cross_chain_config"`
 	BBCConfig        BBCConfig        `json:"bbc_config"`
-	LogConfig        LogConfig        `json:"log_config"`
 }
 
 type CrossChainConfig struct {
@@ -45,34 +44,8 @@ func (cfg *BBCConfig) Validate() {
 	}
 }
 
-type LogConfig struct {
-	Level                        string `json:"level"`
-	Filename                     string `json:"filename"`
-	MaxFileSizeInMB              int    `json:"max_file_size_in_mb"`
-	MaxBackupsOfLogFiles         int    `json:"max_backups_of_log_files"`
-	MaxAgeToRetainLogFilesInDays int    `json:"max_age_to_retain_log_files_in_days"`
-	UseConsoleLogger             bool   `json:"use_console_logger"`
-	UseFileLogger                bool   `json:"use_file_logger"`
-	Compress                     bool   `json:"compress"`
-}
-
-func (cfg *LogConfig) Validate() {
-	if cfg.UseFileLogger {
-		if cfg.Filename == "" {
-			panic("filename should not be empty if use file logger")
-		}
-		if cfg.MaxFileSizeInMB <= 0 {
-			panic("max_file_size_in_mb should be larger than 0 if use file logger")
-		}
-		if cfg.MaxBackupsOfLogFiles <= 0 {
-			panic("max_backups_off_log_files should be larger than 0 if use file logger")
-		}
-	}
-}
-
 func (cfg *Config) Validate() {
 	cfg.CrossChainConfig.Validate()
-	cfg.LogConfig.Validate()
 	cfg.BBCConfig.Validate()
 }
 

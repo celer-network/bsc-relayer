@@ -6,6 +6,7 @@ import (
 
 	"github.com/binance-chain/bsc-relayer/executor"
 	"github.com/binance-chain/go-sdk/common/types"
+	"github.com/celer-network/goutils/log"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"github.com/spf13/pflag"
@@ -16,19 +17,15 @@ import (
 )
 
 const (
-	flagConfigPath         = "config-path"
-	flagConfigType         = "config-type"
-	flagBBCNetworkType     = "bbc-network-type"
-	flagConfigAwsRegion    = "aws-region"
-	flagConfigAwsSecretKey = "aws-secret-key"
+	flagConfigPath     = "config-path"
+	flagConfigType     = "config-type"
+	flagBBCNetworkType = "bbc-network-type"
 )
 
 func initFlags() {
 	flag.String(flagConfigPath, "", "config file path")
 	flag.String(flagConfigType, "local_private_key", "config type, local_private_key or aws_private_key")
 	flag.Int(flagBBCNetworkType, int(types.TmpTestNetwork), "Binance chain network type")
-	flag.String(flagConfigAwsRegion, "", "aws region")
-	flag.String(flagConfigAwsSecretKey, "", "aws secret key")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
@@ -52,7 +49,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	common.Logger.Info("Starting relayer")
+	log.Info("Starting relayer")
 	relayerInstance.MonitorValidatorSetChange(
 		0, []byte{}, []byte{},
 		func(header *common.Header) {},

@@ -17,6 +17,7 @@ import (
 	"github.com/binance-chain/go-sdk/client/rpc"
 	ctypes "github.com/binance-chain/go-sdk/common/types"
 	"github.com/binance-chain/go-sdk/keys"
+	"github.com/celer-network/goutils/log"
 	ethcmm "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
 	cmn "github.com/tendermint/tendermint/libs/common"
@@ -89,7 +90,7 @@ func (ccp *CrossChainPackage) ParseBSCValidatorSet() (bool, []ethcmm.Address) {
 	// prefix length is 33 bytes(1 byte for package type + 32 bytes for relayer fee)
 	err := rlp.DecodeBytes(ccp.Msg[33:], expectedPkg)
 	if err != nil {
-		common.Logger.Errorf("failed to decode this msg to IbcValidatorSetPackage, err:%s", err.Error())
+		log.Errorf("failed to decode this msg to IbcValidatorSetPackage, err:%s", err.Error())
 		return false, nil
 	}
 	bscValidatorSet := make([]ethcmm.Address, 0)
@@ -155,7 +156,7 @@ func (executor *BBCExecutor) SwitchBCClient() {
 	if executor.clientIdx >= len(executor.BBCClients) {
 		executor.clientIdx = 0
 	}
-	common.Logger.Infof("Switch to RPC endpoint: %s", executor.Config.BBCConfig.RpcAddrs[executor.clientIdx])
+	log.Infof("Switch to RPC endpoint: %s", executor.Config.BBCConfig.RpcAddrs[executor.clientIdx])
 }
 
 func (executor *BBCExecutor) GetLatestBlockHeight(client rpc.Client) (int64, error) {
@@ -168,15 +169,15 @@ func (executor *BBCExecutor) GetLatestBlockHeight(client rpc.Client) (int64, err
 
 func (executor *BBCExecutor) UpdateClients() {
 	for {
-		common.Logger.Infof("Start to monitor bc data-seeds healthy")
+		log.Infof("Start to monitor bc data-seeds healthy")
 		for _, bbcClient := range executor.BBCClients {
 			if time.Since(bbcClient.UpdatedAt).Seconds() > DataSeedDenyServiceThreshold {
 				msg := fmt.Sprintf("data seed %s is not accessable", bbcClient.Provider)
-				common.Logger.Error(msg)
+				log.Error(msg)
 			}
 			height, err := executor.GetLatestBlockHeight(bbcClient.BBCClient)
 			if err != nil {
-				common.Logger.Errorf("get latest block height error, err=%s", err.Error())
+				log.Errorf("get latest block height error, err=%s", err.Error())
 				continue
 			}
 			bbcClient.CurrentHeight = height
@@ -270,7 +271,7 @@ func (executor *BBCExecutor) QueryKeyWithProof(key []byte, height int64) (int64,
 	if err != nil {
 		return 0, nil, nil, nil, err
 	}
-	common.Logger.Infof("%v", result)
+	log.Infof("%v", result)
 	proofBytes, err := result.Response.Proof.Marshal()
 	if err != nil {
 		return 0, nil, nil, nil, err
@@ -310,7 +311,7 @@ func (executor *BBCExecutor) GetPackage(channelID common.CrossChainChannelID, se
 			return nil, nil, err
 		}
 		if len(value) == 0 {
-			common.Logger.Infof("Try again to get package, channelID %d, sequence %d", channelID, sequence)
+			log.Infof("Try again to get package, channelID %d, sequence %d", channelID, sequence)
 			time.Sleep(1 * time.Second) // wait 1s
 		} else {
 			break
@@ -332,7 +333,7 @@ func (executor *BBCExecutor) FindAllStakingModulePackages(height int64) ([]*Cros
 
 	for i, event := range blockResults.Results.EndBlock.Events {
 		if event.Type == CrossChainPackageEventType {
-			common.Logger.Infof("event %d from block %d is %s", i, height, event)
+			log.Infof("event %d from block %d is %s", i, height, event.String())
 			for _, tag := range event.Attributes {
 				if string(tag.Key) != CorssChainPackageInfoAttributeKey {
 					continue
@@ -368,7 +369,7 @@ func (executor *BBCExecutor) FindAllStakingModulePackages(height int64) ([]*Cros
 
 				msgBytes, proofBytes, err := executor.GetPackage(common.CrossChainChannelID(channelID), uint64(sequence), uint64(height))
 				if err != nil {
-					common.Logger.Errorf("GetPackage channelId %d sequence %d height %d, err:%s", channelID, sequence, height, err.Error())
+					log.Errorf("GetPackage channelId %d sequence %d height %d, err:%s", channelID, sequence, height, err.Error())
 					return nil, err
 				}
 
