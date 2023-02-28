@@ -271,7 +271,6 @@ func (executor *BBCExecutor) QueryKeyWithProof(key []byte, height int64) (int64,
 	if err != nil {
 		return 0, nil, nil, nil, err
 	}
-	log.Infof("%v", result)
 	proofBytes, err := result.Response.Proof.Marshal()
 	if err != nil {
 		return 0, nil, nil, nil, err
