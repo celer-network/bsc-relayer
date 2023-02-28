@@ -12,4 +12,7 @@ else
 	go install main.go
 endif
 
-.PHONY: build install
+proto:
+	protoc --proto_path=./proto --go_out . --go_opt=module=github.com/celer-network/bsc-relayer ./proto/TendermintLight.proto
+
+.PHONY: build install proto

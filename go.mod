@@ -3,6 +3,7 @@ module github.com/celer-network/bsc-relayer
 go 1.19
 
 require (
+	github.com/aws/smithy-go v1.1.0
 	github.com/binance-chain/go-sdk v1.2.2-0.20200520064040-fc067ad70353
 	github.com/celer-network/goutils v0.1.58
 	github.com/ethereum/go-ethereum v1.10.18
@@ -11,6 +12,7 @@ require (
 	github.com/spf13/viper v1.6.3
 	github.com/tendermint/go-amino v0.14.1
 	github.com/tendermint/tendermint v0.32.3
+	google.golang.org/protobuf v1.23.0
 )
 
 require (
@@ -64,7 +66,6 @@ require (
 	google.golang.org/appengine v1.6.5 // indirect
 	google.golang.org/genproto v0.0.0-20200218151345-dad8c97a84f5 // indirect
 	google.golang.org/grpc v1.27.1 // indirect
-	google.golang.org/protobuf v1.23.0 // indirect
 	gopkg.in/ini.v1 v1.51.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

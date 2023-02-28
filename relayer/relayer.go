@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/binance-chain/go-sdk/common/types"
-	"github.com/celer-network/bsc-relayer/common"
 	config "github.com/celer-network/bsc-relayer/config"
 	"github.com/celer-network/bsc-relayer/executor"
+	"github.com/celer-network/bsc-relayer/tendermint/light"
 	"github.com/celer-network/goutils/log"
 )
 
@@ -35,7 +35,7 @@ func NewRelayer(bbcNetworkType types.ChainNetwork, cfg *config.Config) (*Relayer
 	}, nil
 }
 
-type SyncBBCHeaderCallbackFunc func(header *common.Header)
+type SyncBBCHeaderCallbackFunc func(tmHeader *light.TmHeader)
 
 type RelayCrossChainPackageCallbackFunc func(pkg executor.CrossChainPackage)
 
@@ -53,21 +53,24 @@ func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []by
 	var err error
 	// 1st header for bbc validator set change, at height
 	// 2nd header for ibc package(bsc validator set change), at height+1
-	var firstHeader, SecondHeader *common.Header
-	for ; ; height = r.waitForNextBlock(height, advance) {
+	var firstHeader, SecondHeader *light.TmHeader
+	for ; ; height, advance = r.waitForNextBlock(height, advance) {
 		// check bbc validator set
 		bbcChanged, bbcHash, err = r.BBCExecutor.CheckValidatorSetChange(int64(height), bbcHash)
 		if err != nil {
 			log.Errorf("CheckValidatorSetChange err:%s", err.Error())
-			advance = false
 			continue
 		}
 		// get first bbc header
 		if bbcChanged {
-			firstHeader, err = r.BBCExecutor.QueryTendermintHeader(int64(height))
+			header, err := r.BBCExecutor.QueryTendermintHeader(int64(height))
 			if err != nil {
 				log.Errorf("QueryTendermintHeader err:%s", err.Error())
-				advance = false
+				continue
+			}
+			firstHeader, err = new(light.TmHeader).FromType(header)
+			if err != nil {
+				log.Errorf("Header conversion err:%s", err.Error())
 				continue
 			}
 		}
@@ -76,7 +79,6 @@ func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []by
 		packageSet, err := r.BBCExecutor.FindAllStakingModulePackages(int64(height))
 		if err != nil {
 			log.Errorf("FindAllStakingModulePackages err:%s", err.Error())
-			advance = false
 			continue
 		}
 		var pkg *executor.CrossChainPackage
@@ -84,10 +86,14 @@ func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []by
 
 		// get second bbc header
 		if bscChanged {
-			SecondHeader, err = r.BBCExecutor.QueryTendermintHeader(int64(height) + 1)
+			header, err := r.BBCExecutor.QueryTendermintHeader(int64(height) + 1)
 			if err != nil {
 				log.Errorf("QueryTendermintHeader err:%s", err.Error())
-				advance = false
+				continue
+			}
+			SecondHeader, err = new(light.TmHeader).FromType(header)
+			if err != nil {
+				log.Errorf("FindAllStakingModulePackages err:%s", err.Error())
 				continue
 			}
 		}
@@ -104,16 +110,16 @@ func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []by
 	}
 }
 
-func (r *Relayer) waitForNextBlock(height uint64, advance bool) uint64 {
+func (r *Relayer) waitForNextBlock(height uint64, advance bool) (uint64, bool) {
 	sleepTime := time.Duration(r.BBCExecutor.Config.BBCConfig.SleepMillisecondForWaitBlock * int64(time.Millisecond))
 	if !advance {
 		time.Sleep(sleepTime)
-		return height
+		return height, false
 	}
 	for {
 		curHeight := r.getLatestHeight()
 		if curHeight > height {
-			return height + 1
+			return height + 1, false
 		}
 		time.Sleep(sleepTime)
 	}

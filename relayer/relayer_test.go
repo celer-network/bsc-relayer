@@ -3,10 +3,11 @@ package relayer
 import (
 	"testing"
 
-	"github.com/celer-network/bsc-relayer/common"
 	config "github.com/celer-network/bsc-relayer/config"
 	"github.com/celer-network/bsc-relayer/executor"
+	"github.com/celer-network/bsc-relayer/tendermint/light"
 	"github.com/celer-network/goutils/log"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestRelayer(t *testing.T) {
@@ -37,16 +38,15 @@ func TestRelayer(t *testing.T) {
 	//	t.Logf("temp %d", temp)
 	//}
 	//t.Logf("stopped at %d", left)
-	height := uint64(36647109)
+	height := uint64(36647108)
 	r.MonitorValidatorSetChange(height, []byte{}, []byte{},
-		func(header *common.Header) {
-			t.Logf("callback1 at height %d", header.Height)
-			bs, err := header.EncodeHeader()
+		func(header *light.TmHeader) {
+			t.Logf("callback1 at height %d", header.SignedHeader.Header.Height)
+			bs, err := proto.Marshal(header)
 			if err != nil {
-				t.Errorf("EncodeHeader err:%s", err.Error())
+				t.Errorf("proto marshal err:%s", err.Error())
 			}
 			t.Logf("header bytes %x", bs)
-			t.Logf("current val set hash %x", header.ValidatorSet.Hash())
 		},
 		func(pkg executor.CrossChainPackage) {
 			t.Logf("callback 2 at height %d", pkg.Height)

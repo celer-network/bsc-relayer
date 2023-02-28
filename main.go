@@ -7,13 +7,13 @@ import (
 	"github.com/binance-chain/go-sdk/common/types"
 	config "github.com/celer-network/bsc-relayer/config"
 	"github.com/celer-network/bsc-relayer/executor"
+	"github.com/celer-network/bsc-relayer/tendermint/light"
 	"github.com/celer-network/goutils/log"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/celer-network/bsc-relayer/common"
 	"github.com/celer-network/bsc-relayer/relayer"
 )
 
@@ -60,7 +60,7 @@ func main() {
 	log.Info("Starting relayer")
 	relayerInstance.MonitorValidatorSetChange(
 		0, []byte{}, []byte{},
-		func(header *common.Header) {},
+		func(header *light.TmHeader) {},
 		func(pkg executor.CrossChainPackage) {},
 	)
 }

@@ -66,9 +66,9 @@ func (cs ConsensusState) EncodeConsensusState() ([]byte, error) {
 }
 
 type Header struct {
-	tmtypes.SignedHeader
-	ValidatorSet     *tmtypes.ValidatorSet `json:"validator_set"`
-	NextValidatorSet *tmtypes.ValidatorSet `json:"next_validator_set"`
+	tmtypes.SignedHeader `json:"signed_header"`
+	ValidatorSet         *tmtypes.ValidatorSet `json:"validator_set"`
+	NextValidatorSet     *tmtypes.ValidatorSet `json:"next_validator_set"`
 }
 
 func (h *Header) Validate(chainID string) error {
