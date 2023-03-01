@@ -105,11 +105,11 @@ func (pkp *PublicKey) FromType(pk crypto.PubKey) (*PublicKey, error) {
 	switch k := pk.(type) {
 	case ed25519.PubKeyEd25519:
 		pkp.Sum = &PublicKey_Ed25519{
-			Ed25519: k.Bytes(),
+			Ed25519: k[:],
 		}
 	case secp256k1.PubKeySecp256k1:
 		pkp.Sum = &PublicKey_Secp256K1{
-			Secp256K1: k.Bytes(),
+			Secp256K1: k[:],
 		}
 	default:
 		return pkp, fmt.Errorf("fromtype: key type %v is not supported", k)

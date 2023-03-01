@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"encoding/json"
 	"testing"
 
 	config "github.com/celer-network/bsc-relayer/config"
@@ -39,15 +40,16 @@ func TestRelayer(t *testing.T) {
 	//	t.Logf("temp %d", temp)
 	//}
 	//t.Logf("stopped at %d", left)
-	height := uint64(36647110)
+	height := uint64(36647109)
 	r.MonitorValidatorSetChange(height, []byte{}, []byte{},
 		func(header *light.TmHeader) {
 			t.Logf("callback1 at height %d", header.SignedHeader.Header.Height)
+			js, _ := json.Marshal(header)
+			t.Logf("header content %s", string(js))
 			bs, err := proto.Marshal(header)
 			if err != nil {
 				t.Errorf("proto marshal err:%s", err.Error())
 			}
-			//t.Logf("header bytes %x", bs)
 			a := &anypb.Any{
 				TypeUrl: "/tendermint.types.TmHeader",
 				Value:   bs,
