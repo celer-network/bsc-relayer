@@ -8,6 +8,7 @@ import (
 	"github.com/celer-network/bsc-relayer/tendermint/light"
 	"github.com/celer-network/goutils/log"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 func TestRelayer(t *testing.T) {
@@ -38,7 +39,7 @@ func TestRelayer(t *testing.T) {
 	//	t.Logf("temp %d", temp)
 	//}
 	//t.Logf("stopped at %d", left)
-	height := uint64(36647108)
+	height := uint64(36647110)
 	r.MonitorValidatorSetChange(height, []byte{}, []byte{},
 		func(header *light.TmHeader) {
 			t.Logf("callback1 at height %d", header.SignedHeader.Header.Height)
@@ -46,7 +47,16 @@ func TestRelayer(t *testing.T) {
 			if err != nil {
 				t.Errorf("proto marshal err:%s", err.Error())
 			}
-			t.Logf("header bytes %x", bs)
+			//t.Logf("header bytes %x", bs)
+			a := &anypb.Any{
+				TypeUrl: "/tendermint.types.TmHeader",
+				Value:   bs,
+			}
+			abs, err := proto.Marshal(a)
+			if err != nil {
+				t.Errorf("proto marshal err:%s", err.Error())
+			}
+			t.Logf("any bytes %x", abs)
 		},
 		func(pkg executor.CrossChainPackage) {
 			t.Logf("callback 2 at height %d", pkg.Height)
