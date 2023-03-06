@@ -1,8 +1,12 @@
 package relayer
 
 import (
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"testing"
+
+	_ "github.com/lib/pq"
 
 	config "github.com/celer-network/bsc-relayer/config"
 	"github.com/celer-network/bsc-relayer/executor"
@@ -14,33 +18,41 @@ import (
 
 func TestRelayer(t *testing.T) {
 	log.SetLevelByName("debug")
-	r, err := NewRelayer(0, &config.Config{
+	dbUrl := fmt.Sprintf("postgresql://root@%s/bbc_relayer?sslmode=disable", "localhost:26257")
+	db, err := sql.Open("postgres", dbUrl)
+	if err != nil {
+		t.Fatalf("open db, err:%s", err.Error())
+	}
+	r, err := NewRelayer(&config.Config{
+		NetworkType:      0,
 		CrossChainConfig: config.CrossChainConfig{1, 97},
 		BBCConfig:        config.BBCConfig{[]string{"tcp://data-seed-pre-0-s1.binance.org:80"}, 500},
-	})
+	}, db)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 	t.Logf("latest block number %d", r.getLatestHeight())
-	//start := 36647109
-	//end := 36647110
-	//ss, _ := r.BBCExecutor.GetNextSequence(8, int64(start))
-	//se, _ := r.BBCExecutor.GetNextSequence(8, int64(end))
-	//t.Logf("next sequence %d %d", ss, se)
-	//right := end
-	//left := start
-	//for left+1 != right {
-	//	temp := (left + right) / 2
-	//	sc, _ := r.BBCExecutor.GetNextSequence(8, int64(temp))
-	//	if sc == ss {
-	//		left = temp
-	//	} else {
-	//		right = temp
-	//	}
-	//	t.Logf("temp %d", temp)
-	//}
-	//t.Logf("stopped at %d", left)
-	height := uint64(36647109)
+	right := r.getLatestHeight()
+	sr, _ := r.BBCExecutor.GetNextSequence(8, int64(right))
+	left := right - 10000
+	sl, _ := r.BBCExecutor.GetNextSequence(8, int64(left))
+	for sl == sr {
+		left -= 10000
+		sl, _ = r.BBCExecutor.GetNextSequence(8, int64(left))
+	}
+	t.Logf("next sequence %d", sr)
+	t.Logf("finding previous pkg from %d to %d", left, right)
+	for left+1 != right {
+		temp := (left + right) / 2
+		sc, _ := r.BBCExecutor.GetNextSequence(8, int64(temp))
+		if sc == sl {
+			left = temp
+		} else {
+			right = temp
+		}
+	}
+	t.Logf("stopped at %d", left)
+	height := left
 	r.MonitorValidatorSetChange(height, []byte{}, []byte{},
 		func(header *light.TmHeader) {
 			t.Logf("callback1 at height %d", header.SignedHeader.Header.Height)

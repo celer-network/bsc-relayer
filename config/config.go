@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
+	"github.com/binance-chain/go-sdk/common/types"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -16,8 +17,9 @@ type ChannelConfig struct {
 }
 
 type Config struct {
-	CrossChainConfig CrossChainConfig `json:"cross_chain_config"`
-	BBCConfig        BBCConfig        `json:"bbc_config"`
+	NetworkType      types.ChainNetwork `json:"network_type"`
+	CrossChainConfig CrossChainConfig   `json:"cross_chain_config"`
+	BBCConfig        BBCConfig          `json:"bbc_config"`
 }
 
 type CrossChainConfig struct {

@@ -1,10 +1,10 @@
 package main
 
 import (
+	"database/sql"
 	"flag"
 	"fmt"
 
-	"github.com/binance-chain/go-sdk/common/types"
 	config "github.com/celer-network/bsc-relayer/config"
 	"github.com/celer-network/bsc-relayer/executor"
 	"github.com/celer-network/bsc-relayer/tendermint/light"
@@ -18,14 +18,14 @@ import (
 )
 
 const (
-	flagConfigPath     = "config-path"
-	flagBBCNetworkType = "bbc-network-type"
-	flagLogLevel       = "log-level"
+	flagDB         = "db"
+	flagConfigPath = "config-path"
+	flagLogLevel   = "log-level"
 )
 
 func initFlags() {
+	flag.String(flagDB, "localhost:26257", "db host")
 	flag.String(flagConfigPath, "", "config file path")
-	flag.Int(flagBBCNetworkType, int(types.TmpTestNetwork), "Binance chain network type")
 	flag.String(flagLogLevel, "info", "log level")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
@@ -37,13 +37,13 @@ func initFlags() {
 }
 
 func printUsage() {
-	fmt.Print("usage: ./bsc-relayer --bbc-network-type 0 --config-path configFile\n --log-level debug")
+	fmt.Print("usage: ./bsc-relayer --config-path configFile\n --log-level debug")
 }
 
 func main() {
 	initFlags()
 
-	bbcNetworkType := viper.GetInt(flagBBCNetworkType)
+	dbHost := viper.GetString(flagDB)
 	configFilePath := viper.GetString(flagConfigPath)
 	logLevel := viper.GetString(flagLogLevel)
 	log.Infof("log level %s", logLevel)
@@ -53,7 +53,12 @@ func main() {
 		log.Panic("empty config file path provided")
 	}
 	cfg = config.ParseConfigFromFile(configFilePath)
-	relayerInstance, err := relayer.NewRelayer(types.ChainNetwork(bbcNetworkType), cfg)
+	dbUrl := fmt.Sprintf("postgresql://root@%s/bbc-relayer?sslmode=disable", dbHost)
+	db, err := sql.Open("postgres", dbUrl)
+	if err != nil {
+		log.Panic("open db, err:%s", err.Error())
+	}
+	relayerInstance, err := relayer.NewRelayer(cfg, db)
 	if err != nil {
 		panic(err)
 	}

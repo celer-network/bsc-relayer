@@ -112,8 +112,10 @@ func FindBscValidatorSetChangePackage(curHash []byte, pkgs []*CrossChainPackage)
 			}
 			newHash := sha.Sum(nil)
 			if !bytes.Equal(curHash, newHash) {
+				log.Infof("pkg at %d, seq %d, bsc vals hash %x. Changed.", pkg.Height, pkg.Sequence, newHash)
 				return true, newHash, pkg
 			}
+			log.Infof("pkg at %d, seq %d, bsc vals hash %x. Unchanged.", pkg.Height, pkg.Sequence, curHash)
 		}
 	}
 	return false, curHash, nil
@@ -133,10 +135,10 @@ func initBBCClients(keyManager keys.KeyManager, providers []string, network ctyp
 	return bcClients
 }
 
-func NewBBCExecutor(cfg *config.Config, networkType ctypes.ChainNetwork) (*BBCExecutor, error) {
+func NewBBCExecutor(cfg *config.Config) (*BBCExecutor, error) {
 	return &BBCExecutor{
 		clientIdx:     0,
-		BBCClients:    initBBCClients(nil, cfg.BBCConfig.RpcAddrs, networkType),
+		BBCClients:    initBBCClients(nil, cfg.BBCConfig.RpcAddrs, cfg.NetworkType),
 		Config:        cfg,
 		sourceChainID: common.CrossChainID(cfg.CrossChainConfig.SourceChainID),
 		destChainID:   common.CrossChainID(cfg.CrossChainConfig.DestChainID),
@@ -332,7 +334,6 @@ func (executor *BBCExecutor) FindAllStakingModulePackages(height int64) ([]*Cros
 
 	for i, event := range blockResults.Results.EndBlock.Events {
 		if event.Type == CrossChainPackageEventType {
-			log.Infof("event %d from block %d is %s", i, height, event.String())
 			for _, tag := range event.Attributes {
 				if string(tag.Key) != CorssChainPackageInfoAttributeKey {
 					continue

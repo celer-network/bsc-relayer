@@ -1,0 +1,22 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "query.sql"
+    schema: "schema.sql"
+    gen:
+      go:
+        package: "model"
+        out: "."
+        overrides:
+            - column: "bbc_status.bbc_vals_hash"
+              go_type: "string"
+            - column: "bbc_status.bsc_vals_hash"
+              go_type: "string"
+            - column: "bbc_status.network_id"
+              go_type: "uint64"
+            - column: "bbc_status.height"
+              go_type: "uint64"
+            - column: "bbc_status.stake_mod_seq"
+              go_type: "uint64"
+            - column: "bbc_status.synced_at"
+              go_type: "uint64"

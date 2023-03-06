@@ -3,11 +3,11 @@ module github.com/celer-network/bsc-relayer
 go 1.19
 
 require (
-	github.com/aws/smithy-go v1.1.0
 	github.com/binance-chain/go-sdk v1.2.2-0.20200520064040-fc067ad70353
 	github.com/celer-network/goutils v0.1.58
 	github.com/ethereum/go-ethereum v1.10.18
 	github.com/jinzhu/gorm v1.9.12
+	github.com/lib/pq v1.3.0
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.6.3
 	github.com/tendermint/go-amino v0.14.1
