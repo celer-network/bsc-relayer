@@ -53,7 +53,7 @@ func TestRelayer(t *testing.T) {
 	}
 	t.Logf("stopped at %d", left)
 	height := left
-	r.MonitorValidatorSetChange(height, []byte{}, []byte{},
+	r.MonitorValidatorSetChange(height, []byte{1}, []byte{1},
 		func(header *light.TmHeader) {
 			t.Logf("callback1 at height %d", header.SignedHeader.Header.Height)
 			js, _ := json.Marshal(header)
@@ -71,6 +71,10 @@ func TestRelayer(t *testing.T) {
 				t.Errorf("proto marshal err:%s", err.Error())
 			}
 			t.Logf("any bytes %x", abs)
+			err = r.UpdateAfterSync(uint64(header.SignedHeader.Header.Height))
+			if err != nil {
+				t.Errorf("UpdateAfterSync err:%s", err.Error())
+			}
 		},
 		func(pkg executor.CrossChainPackage) {
 			t.Logf("callback 2 at height %d", pkg.Height)

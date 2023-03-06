@@ -57,7 +57,7 @@ type SyncBBCHeaderCallbackFunc func(tmHeader *light.TmHeader)
 type RelayCrossChainPackageCallbackFunc func(pkg executor.CrossChainPackage)
 
 func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []byte, callback1 SyncBBCHeaderCallbackFunc, callback2 RelayCrossChainPackageCallbackFunc) {
-	statusFromDB, err := r.getBBCStatus()
+	statusFromDB, err := r.GetBBCStatus()
 	if err != nil {
 		log.Errorf("GetBBCStatus from db, err:%s", err.Error())
 		return
@@ -134,7 +134,7 @@ func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []by
 		// after gotten all data, trigger callback function
 		if bbcChanged {
 			callback1(firstHeader)
-			err = r.updateBBCValsHash(height, bbcHash)
+			err = r.updateBBCValsHash(bbcHash)
 			if err != nil {
 				log.Errorf("UpdateBBCValsHash into db, err:%s", err.Error())
 			}
@@ -142,7 +142,7 @@ func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []by
 		if bscChanged {
 			callback1(SecondHeader)
 			callback2(*pkg)
-			err = r.updateBSCValsHash(height+1, pkg.Sequence, bscHash)
+			err = r.updateBSCValsHash(pkg.Sequence, bscHash)
 			if err != nil {
 				log.Errorf("UpdateBSCValsHash into db, err:%s", err.Error())
 			}
@@ -180,11 +180,21 @@ func (r *Relayer) getLatestHeight() uint64 {
 	return uint64(abciInfo.Response.LastBlockHeight)
 }
 
-func (r *Relayer) getBBCStatus() (model.BbcStatus, error) {
+func (r *Relayer) GetBBCStatus() (model.BbcStatus, error) {
 	if r.queries == nil {
 		return model.BbcStatus{}, nil
 	}
 	return r.queries.GetBBCStatus(context.Background(), uint64(r.cfg.NetworkType))
+}
+
+func (r *Relayer) UpdateAfterSync(height uint64) error {
+	if r.queries == nil {
+		return nil
+	}
+	return r.queries.UpdateAfterSync(context.Background(), model.UpdateAfterSyncParams{
+		NetworkID: uint64(r.cfg.NetworkType),
+		SyncedAt:  height,
+	})
 }
 
 // initBBCStatus insert a row into bbc_status table when relayer starts for the first time
@@ -211,20 +221,19 @@ func (r *Relayer) updateHeight(height uint64) error {
 	})
 }
 
-// updateBBCValsHash update synced_at and bbc_val_hash of bbc_status table
-func (r *Relayer) updateBBCValsHash(height uint64, bbcHash []byte) error {
+// updateBBCValsHash update bbc_val_hash of bbc_status table
+func (r *Relayer) updateBBCValsHash(bbcHash []byte) error {
 	if r.queries == nil {
 		return nil
 	}
 	return r.queries.UpdateBBCValsHash(context.Background(), model.UpdateBBCValsHashParams{
 		NetworkID:   uint64(r.cfg.NetworkType),
 		BbcValsHash: ethcmm.Bytes2Hex(bbcHash),
-		SyncedAt:    height,
 	})
 }
 
-// updateBSCValsHash update synced_at, sequence and bsc_val_hash of bbc_status table
-func (r *Relayer) updateBSCValsHash(height uint64, sequence uint64, bbcHash []byte) error {
+// updateBSCValsHash update sequence and bsc_val_hash of bbc_status table
+func (r *Relayer) updateBSCValsHash(sequence uint64, bbcHash []byte) error {
 	if r.queries == nil {
 		return nil
 	}
@@ -232,7 +241,6 @@ func (r *Relayer) updateBSCValsHash(height uint64, sequence uint64, bbcHash []by
 		NetworkID:   uint64(r.cfg.NetworkType),
 		BscValsHash: ethcmm.Bytes2Hex(bbcHash),
 		StakeModSeq: sequence,
-		SyncedAt:    height,
 	})
 }
 

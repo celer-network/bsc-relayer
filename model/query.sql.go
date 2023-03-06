@@ -53,29 +53,42 @@ func (q *Queries) InitBBCStatus(ctx context.Context, arg InitBBCStatusParams) er
 	return err
 }
 
+const updateAfterSync = `-- name: UpdateAfterSync :exec
+update bbc_status
+    set synced_at = $2
+where network_id = $1
+`
+
+type UpdateAfterSyncParams struct {
+	NetworkID uint64
+	SyncedAt  uint64
+}
+
+func (q *Queries) UpdateAfterSync(ctx context.Context, arg UpdateAfterSyncParams) error {
+	_, err := q.db.ExecContext(ctx, updateAfterSync, arg.NetworkID, arg.SyncedAt)
+	return err
+}
+
 const updateBBCValsHash = `-- name: UpdateBBCValsHash :exec
 update bbc_status
-    set bbc_vals_hash = $2,
-    synced_at = $3
+    set bbc_vals_hash = $2
 where network_id = $1
 `
 
 type UpdateBBCValsHashParams struct {
 	NetworkID   uint64
 	BbcValsHash string
-	SyncedAt    uint64
 }
 
 func (q *Queries) UpdateBBCValsHash(ctx context.Context, arg UpdateBBCValsHashParams) error {
-	_, err := q.db.ExecContext(ctx, updateBBCValsHash, arg.NetworkID, arg.BbcValsHash, arg.SyncedAt)
+	_, err := q.db.ExecContext(ctx, updateBBCValsHash, arg.NetworkID, arg.BbcValsHash)
 	return err
 }
 
 const updateBSCValsHash = `-- name: UpdateBSCValsHash :exec
 update bbc_status
     set bsc_vals_hash = $2,
-    stake_mod_seq = $3,
-    synced_at = $4
+    stake_mod_seq = $3
 where network_id = $1
 `
 
@@ -83,16 +96,10 @@ type UpdateBSCValsHashParams struct {
 	NetworkID   uint64
 	BscValsHash string
 	StakeModSeq uint64
-	SyncedAt    uint64
 }
 
 func (q *Queries) UpdateBSCValsHash(ctx context.Context, arg UpdateBSCValsHashParams) error {
-	_, err := q.db.ExecContext(ctx, updateBSCValsHash,
-		arg.NetworkID,
-		arg.BscValsHash,
-		arg.StakeModSeq,
-		arg.SyncedAt,
-	)
+	_, err := q.db.ExecContext(ctx, updateBSCValsHash, arg.NetworkID, arg.BscValsHash, arg.StakeModSeq)
 	return err
 }
 

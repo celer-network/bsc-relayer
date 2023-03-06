@@ -16,13 +16,16 @@ where network_id = $1;
 
 -- name: UpdateBBCValsHash :exec
 update bbc_status
-    set bbc_vals_hash = $2,
-    synced_at = $3
+    set bbc_vals_hash = $2
 where network_id = $1;
 
 -- name: UpdateBSCValsHash :exec
 update bbc_status
     set bsc_vals_hash = $2,
-    stake_mod_seq = $3,
-    synced_at = $4
+    stake_mod_seq = $3
+where network_id = $1;
+
+-- name: UpdateAfterSync :exec
+update bbc_status
+    set synced_at = $2
 where network_id = $1;
