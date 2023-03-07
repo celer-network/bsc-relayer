@@ -138,7 +138,7 @@ func initBBCClients(keyManager keys.KeyManager, providers []string, network ctyp
 func NewBBCExecutor(cfg *config.Config) (*BBCExecutor, error) {
 	return &BBCExecutor{
 		clientIdx:     0,
-		BBCClients:    initBBCClients(nil, cfg.BBCConfig.RpcAddrs, cfg.NetworkType),
+		BBCClients:    initBBCClients(nil, cfg.RpcAddrs, cfg.NetworkType),
 		Config:        cfg,
 		sourceChainID: common.CrossChainID(cfg.CrossChainConfig.SourceChainID),
 		destChainID:   common.CrossChainID(cfg.CrossChainConfig.DestChainID),
@@ -158,7 +158,7 @@ func (executor *BBCExecutor) SwitchBCClient() {
 	if executor.clientIdx >= len(executor.BBCClients) {
 		executor.clientIdx = 0
 	}
-	log.Infof("Switch to RPC endpoint: %s", executor.Config.BBCConfig.RpcAddrs[executor.clientIdx])
+	log.Infof("Switch to RPC endpoint: %s", executor.Config.RpcAddrs[executor.clientIdx])
 }
 
 func (executor *BBCExecutor) GetLatestBlockHeight(client rpc.Client) (int64, error) {

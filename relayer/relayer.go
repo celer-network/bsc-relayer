@@ -142,7 +142,7 @@ func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []by
 }
 
 func (r *Relayer) waitForNextBlock(height uint64, advance bool) (uint64, bool) {
-	sleepTime := time.Duration(r.BBCExecutor.Config.BBCConfig.SleepMillisecondForWaitBlock * int64(time.Millisecond))
+	sleepTime := time.Duration(r.BBCExecutor.Config.SleepMillisecondForWaitBlock * int64(time.Millisecond))
 	if !advance {
 		time.Sleep(sleepTime)
 		return height, false

@@ -4,10 +4,8 @@
     "source_chain_id": 1,
     "dest_chain_id": 97
   },
-  "bbc_config": {
-    "rpc_addrs": [
-      "tcp://data-seed-pre-0-s1.binance.org:80"
-    ],
-    "sleep_millisecond_for_wait_block": 500
-  }
+  "rpc_addrs": [
+    "tcp://data-seed-pre-0-s1.binance.org:80"
+  ],
+  "sleep_millisecond_for_wait_block": 500
 }

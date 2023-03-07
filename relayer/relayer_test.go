@@ -23,9 +23,10 @@ func TestRelayer(t *testing.T) {
 		t.Fatalf("open db, err:%s", err.Error())
 	}
 	r, err := NewRelayer(&config.Config{
-		NetworkType:      0,
-		CrossChainConfig: config.CrossChainConfig{1, 97},
-		BBCConfig:        config.BBCConfig{[]string{"tcp://data-seed-pre-0-s1.binance.org:80"}, 500},
+		NetworkType:                  0,
+		CrossChainConfig:             config.CrossChainConfig{SourceChainID: 1, DestChainID: 97},
+		RpcAddrs:                     []string{"tcp://data-seed-pre-0-s1.binance.org:80"},
+		SleepMillisecondForWaitBlock: 500,
 	}, db)
 	if err != nil {
 		t.Fatalf(err.Error())

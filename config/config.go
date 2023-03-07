@@ -5,21 +5,13 @@ import (
 	"io/ioutil"
 
 	"github.com/binance-chain/go-sdk/common/types"
-	"github.com/ethereum/go-ethereum/common"
 )
 
-type ChannelConfig struct {
-	ChannelID      int8           `json:"channel_id"`
-	Method         string         `json:"method"`
-	ABIName        string         `json:"abi_name"`
-	ContractAddr   common.Address `json:"contract_addr"`
-	SequenceMethod string         `json:"sequence_method"`
-}
-
 type Config struct {
-	NetworkType      types.ChainNetwork `json:"network_type"`
-	CrossChainConfig CrossChainConfig   `json:"cross_chain_config"`
-	BBCConfig        BBCConfig          `json:"bbc_config"`
+	NetworkType                  types.ChainNetwork `json:"network_type"`
+	CrossChainConfig             CrossChainConfig   `json:"cross_chain_config"`
+	RpcAddrs                     []string           `json:"rpc_addrs"`
+	SleepMillisecondForWaitBlock int64              `json:"sleep_millisecond_for_wait_block"`
 }
 
 type CrossChainConfig struct {
@@ -27,15 +19,7 @@ type CrossChainConfig struct {
 	DestChainID   uint16 `json:"dest_chain_id"`
 }
 
-func (cfg *CrossChainConfig) Validate() {
-}
-
-type BBCConfig struct {
-	RpcAddrs                     []string `json:"rpc_addrs"`
-	SleepMillisecondForWaitBlock int64    `json:"sleep_millisecond_for_wait_block"`
-}
-
-func (cfg *BBCConfig) Validate() bool {
+func (cfg *Config) Validate() bool {
 	if len(cfg.RpcAddrs) == 0 {
 		return false
 	}
@@ -43,10 +27,6 @@ func (cfg *BBCConfig) Validate() bool {
 		return false
 	}
 	return true
-}
-
-func (cfg *Config) Validate() bool {
-	return cfg.BBCConfig.Validate()
 }
 
 func ParseConfigFromJson(content string) *Config {

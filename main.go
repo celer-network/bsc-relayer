@@ -56,7 +56,7 @@ func main() {
 	dbUrl := fmt.Sprintf("postgresql://root@%s/bbc-relayer?sslmode=disable", dbHost)
 	db, err := sql.Open("postgres", dbUrl)
 	if err != nil {
-		log.Panic("open db, err:%s", err.Error())
+		log.Panicf("open db, err:%s", err.Error())
 	}
 	relayerInstance, err := relayer.NewRelayer(cfg, db)
 	if err != nil {
