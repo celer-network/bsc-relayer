@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/binance-chain/go-sdk/common/types"
+	"github.com/celer-network/bsc-relayer/common"
 	config "github.com/celer-network/bsc-relayer/config"
 	"github.com/celer-network/bsc-relayer/executor"
 	"github.com/celer-network/bsc-relayer/model"
-	"github.com/celer-network/bsc-relayer/tendermint/light"
 	"github.com/celer-network/goutils/log"
 	ethcmm "github.com/ethereum/go-ethereum/common"
 )
@@ -52,9 +52,9 @@ func NewRelayer(cfg *config.Config, db model.DBTX) (*Relayer, error) {
 	return relayer, nil
 }
 
-type SyncBBCHeaderCallbackFunc func(tmHeader *light.TmHeader)
+type SyncBBCHeaderCallbackFunc func(header *common.Header)
 
-type RelayCrossChainPackageCallbackFunc func(pkg executor.CrossChainPackage)
+type RelayCrossChainPackageCallbackFunc func(pkg *executor.CrossChainPackage)
 
 func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []byte, callback1 SyncBBCHeaderCallbackFunc, callback2 RelayCrossChainPackageCallbackFunc) {
 	statusFromDB, err := r.GetBBCStatus()
@@ -86,7 +86,7 @@ func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []by
 	bbcChanged, bscChanged := false, false
 	// 1st header for bbc validator set change, at height
 	// 2nd header for ibc package(bsc validator set change), at height+1
-	var firstHeader, SecondHeader *light.TmHeader
+	var firstHeader, SecondHeader *common.Header
 	for ; ; height, advance = r.waitForNextBlock(height, advance) {
 		// check bbc validator set
 		bbcChanged, bbcHash, err = r.BBCExecutor.CheckValidatorSetChange(int64(height), bbcHash)
@@ -96,14 +96,9 @@ func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []by
 		}
 		// get first bbc header
 		if bbcChanged {
-			header, err := r.BBCExecutor.QueryTendermintHeader(int64(height))
+			firstHeader, err = r.BBCExecutor.QueryTendermintHeader(int64(height))
 			if err != nil {
 				log.Errorf("QueryTendermintHeader err:%s", err.Error())
-				continue
-			}
-			firstHeader, err = new(light.TmHeader).FromType(header)
-			if err != nil {
-				log.Errorf("Header conversion err:%s", err.Error())
 				continue
 			}
 		}
@@ -119,14 +114,9 @@ func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []by
 
 		// get second bbc header
 		if bscChanged {
-			header, err := r.BBCExecutor.QueryTendermintHeader(int64(height) + 1)
+			SecondHeader, err = r.BBCExecutor.QueryTendermintHeader(int64(height) + 1)
 			if err != nil {
 				log.Errorf("QueryTendermintHeader err:%s", err.Error())
-				continue
-			}
-			SecondHeader, err = new(light.TmHeader).FromType(header)
-			if err != nil {
-				log.Errorf("FindAllStakingModulePackages err:%s", err.Error())
 				continue
 			}
 		}
@@ -141,7 +131,7 @@ func (r *Relayer) MonitorValidatorSetChange(height uint64, bbcHash, bscHash []by
 		}
 		if bscChanged {
 			callback1(SecondHeader)
-			callback2(*pkg)
+			callback2(pkg)
 			err = r.updateBSCValsHash(pkg.Sequence, bscHash)
 			if err != nil {
 				log.Errorf("UpdateBSCValsHash into db, err:%s", err.Error())

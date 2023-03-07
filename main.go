@@ -5,9 +5,9 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/celer-network/bsc-relayer/common"
 	config "github.com/celer-network/bsc-relayer/config"
 	"github.com/celer-network/bsc-relayer/executor"
-	"github.com/celer-network/bsc-relayer/tendermint/light"
 	"github.com/celer-network/goutils/log"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
@@ -65,7 +65,7 @@ func main() {
 	log.Info("Starting relayer")
 	relayerInstance.MonitorValidatorSetChange(
 		0, []byte{}, []byte{},
-		func(header *light.TmHeader) {},
-		func(pkg executor.CrossChainPackage) {},
+		func(header *common.Header) {},
+		func(pkg *executor.CrossChainPackage) {},
 	)
 }

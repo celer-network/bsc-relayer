@@ -10,6 +10,8 @@ import (
 	"github.com/tendermint/tendermint/crypto/secp256k1"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/version"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 func (pshp *PartSetHeader) FromType(psh *tmtypes.PartSetHeader) *PartSetHeader {
@@ -165,4 +167,24 @@ func (tmh *TmHeader) FromType(h *common.Header) (*TmHeader, error) {
 	tmh.SignedHeader = new(SignedHeader).FromType(&h.SignedHeader)
 	tmh.ValidatorSet = valSet
 	return tmh, nil
+}
+
+func EncodeHeader(h *common.Header) ([]byte, error) {
+	tmh, err := new(TmHeader).FromType(h)
+	if err != nil {
+		return nil, err
+	}
+	bs, err := proto.Marshal(tmh)
+	if err != nil {
+		return nil, err
+	}
+	a := &anypb.Any{
+		TypeUrl: "/tendermint.types.TmHeader",
+		Value:   bs,
+	}
+	abs, err := proto.Marshal(a)
+	if err != nil {
+		return nil, err
+	}
+	return abs, nil
 }

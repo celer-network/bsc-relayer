@@ -98,12 +98,19 @@ func (h *Header) EncodeHeader() ([]byte, error) {
 	return bz, nil
 }
 
-type Task struct {
-	ChannelID CrossChainChannelID
-	Sequence  uint64
-}
-
-type TaskSet struct {
-	Height   uint64
-	TaskList []Task
+func (h *Header) GetSigs() (pubkeys, sigs, signdatas [][]byte) {
+	pubkeys = make([][]byte, 0)
+	sigs = make([][]byte, 0)
+	signdatas = make([][]byte, 0)
+	for i, precommit := range h.Commit.Precommits {
+		if precommit == nil {
+			continue // OK, some precommits can be missing.
+		}
+		_, val := h.ValidatorSet.GetByIndex(i)
+		key := val.PubKey.(ed25519.PubKeyEd25519)
+		pubkeys = append(pubkeys, key[:])
+		sigs = append(sigs, precommit.Signature)
+		signdatas = append(signdatas, h.Commit.VoteSignBytes(h.ChainID, i))
+	}
+	return
 }

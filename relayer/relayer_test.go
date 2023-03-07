@@ -6,14 +6,13 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/celer-network/bsc-relayer/common"
+	"github.com/celer-network/bsc-relayer/tendermint/light"
 	_ "github.com/lib/pq"
 
 	config "github.com/celer-network/bsc-relayer/config"
 	"github.com/celer-network/bsc-relayer/executor"
-	"github.com/celer-network/bsc-relayer/tendermint/light"
 	"github.com/celer-network/goutils/log"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 func TestRelayer(t *testing.T) {
@@ -54,29 +53,31 @@ func TestRelayer(t *testing.T) {
 	t.Logf("stopped at %d", left)
 	height := left
 	r.MonitorValidatorSetChange(height, []byte{1}, []byte{1},
-		func(header *light.TmHeader) {
-			t.Logf("callback1 at height %d", header.SignedHeader.Header.Height)
+		func(header *common.Header) {
+			t.Logf("callback1 at height %d", header.Height)
 			js, _ := json.Marshal(header)
 			t.Logf("header content %s", string(js))
-			bs, err := proto.Marshal(header)
+			abs, err := light.EncodeHeader(header)
 			if err != nil {
-				t.Errorf("proto marshal err:%s", err.Error())
-			}
-			a := &anypb.Any{
-				TypeUrl: "/tendermint.types.TmHeader",
-				Value:   bs,
-			}
-			abs, err := proto.Marshal(a)
-			if err != nil {
-				t.Errorf("proto marshal err:%s", err.Error())
+				t.Errorf("EncodeHeaderProto err:%s", err.Error())
 			}
 			t.Logf("any bytes %x", abs)
-			err = r.UpdateAfterSync(uint64(header.SignedHeader.Header.Height))
+			err = r.UpdateAfterSync(uint64(header.Height))
 			if err != nil {
 				t.Errorf("UpdateAfterSync err:%s", err.Error())
 			}
+			pubkeys, sigs, signdatas := header.GetSigs()
+			var a, b, c string
+			for i := range pubkeys {
+				a += fmt.Sprintf("%x,", pubkeys[i])
+				b += fmt.Sprintf("%x,", sigs[i])
+				c += fmt.Sprintf("%x,", signdatas[i])
+			}
+			t.Logf("pubkeys: %s", a)
+			t.Logf("sigs: %s", b)
+			t.Logf("signdatas: %s", c)
 		},
-		func(pkg executor.CrossChainPackage) {
+		func(pkg *executor.CrossChainPackage) {
 			t.Logf("callback 2 at height %d", pkg.Height)
 			t.Logf("sequence %d", pkg.Sequence)
 			t.Logf("msg %x", pkg.Msg)
