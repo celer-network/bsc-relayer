@@ -8,10 +8,10 @@ import (
 )
 
 type Config struct {
-	NetworkType                  types.ChainNetwork `json:"network_type"`
-	CrossChainConfig             CrossChainConfig   `json:"cross_chain_config"`
-	RpcAddrs                     []string           `json:"rpc_addrs"`
-	SleepMillisecondForWaitBlock int64              `json:"sleep_millisecond_for_wait_block"`
+	NetworkType                  types.ChainNetwork `json:"network_type" mapstructure:"network_type"`
+	CrossChainConfig             CrossChainConfig   `json:"cross_chain_config" mapstructure:"cross_chain_config"`
+	RpcAddrs                     []string           `json:"rpc_addrs" mapstructure:"rpc_addrs"`
+	SleepMillisecondForWaitBlock int64              `json:"sleep_millisecond_for_wait_block" mapstructure:"sleep_millisecond_for_wait_block"`
 }
 
 type CrossChainConfig struct {

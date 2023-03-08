@@ -64,7 +64,6 @@ func main() {
 	}
 	log.Info("Starting relayer")
 	relayerInstance.MonitorStakingModule(
-		0, []byte{}, []byte{},
 		func(header *common.Header) {},
 		func(pkg *executor.CrossChainPackage) {},
 	)
