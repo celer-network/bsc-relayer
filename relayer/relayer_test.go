@@ -53,7 +53,8 @@ func TestRelayer(t *testing.T) {
 	}
 	t.Logf("stopped at %d", left)
 	height := left
-	r.MonitorValidatorSetChange(height, []byte{1}, []byte{1},
+	r.SetupInitialState(fmt.Sprintf("%d", height), []byte{1}, []byte{1})
+	r.MonitorStakingModule(
 		func(header *common.Header) {
 			t.Logf("callback1 at height %d", header.Height)
 			js, _ := json.Marshal(header)
@@ -78,14 +79,17 @@ func TestRelayer(t *testing.T) {
 			t.Logf("sigs: %s", b)
 			t.Logf("signdatas: %s", c)
 		},
-		func(pkg *executor.CrossChainPackage) {
-			t.Logf("callback 2 at height %d", pkg.Height)
-			t.Logf("sequence %d", pkg.Sequence)
-			t.Logf("msg %x", pkg.Msg)
-			t.Logf("proof %x", pkg.Proof)
-			ok, set := pkg.ParseBSCValidatorSet()
-			if ok {
-				t.Logf("bsc validator set %v", set)
-			}
-		})
+		r.NewCallback2WithBSCHashCheck(
+			func(pkg *executor.CrossChainPackage) {
+				t.Logf("callback 2 at height %d", pkg.Height)
+				t.Logf("sequence %d", pkg.Sequence)
+				t.Logf("msg %x", pkg.Msg)
+				t.Logf("proof %x", pkg.Proof)
+				ok, set := pkg.ParseBSCValidatorSet()
+				if ok {
+					t.Logf("bsc validator set %v", set)
+				}
+			},
+		),
+	)
 }

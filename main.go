@@ -63,7 +63,7 @@ func main() {
 		panic(err)
 	}
 	log.Info("Starting relayer")
-	relayerInstance.MonitorValidatorSetChange(
+	relayerInstance.MonitorStakingModule(
 		0, []byte{}, []byte{},
 		func(header *common.Header) {},
 		func(pkg *executor.CrossChainPackage) {},
