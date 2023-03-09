@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/celer-network/goutils/log"
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	tmtypes "github.com/tendermint/tendermint/types"
 )
@@ -99,18 +100,21 @@ func (h *Header) EncodeHeader() ([]byte, error) {
 }
 
 func (h *Header) GetSigs() (pubkeys, sigs, signdatas [][]byte) {
-	pubkeys = make([][]byte, 0)
-	sigs = make([][]byte, 0)
-	signdatas = make([][]byte, 0)
+	num := len(h.Commit.Precommits)
+	if num != len(h.ValidatorSet.Validators) {
+		log.Panicf("mismatch length of precommits %d and validator set %d", num, len(h.ValidatorSet.Validators))
+	}
+	pubkeys = make([][]byte, num)
+	sigs = make([][]byte, num)
+	signdatas = make([][]byte, num)
 	for i, precommit := range h.Commit.Precommits {
-		if precommit == nil {
-			continue // OK, some precommits can be missing.
-		}
 		_, val := h.ValidatorSet.GetByIndex(i)
 		key := val.PubKey.(ed25519.PubKeyEd25519)
-		pubkeys = append(pubkeys, key[:])
-		sigs = append(sigs, precommit.Signature)
-		signdatas = append(signdatas, h.Commit.VoteSignBytes(h.ChainID, i))
+		pubkeys[i] = key[:]
+		if precommit != nil {
+			sigs[i] = precommit.Signature
+			signdatas[i] = h.Commit.VoteSignBytes(h.ChainID, i)
+		}
 	}
 	return
 }

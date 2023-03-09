@@ -15,7 +15,15 @@ import (
 	ethcmm "github.com/ethereum/go-ethereum/common"
 )
 
-type Relayer struct {
+type Relayer interface {
+	NewCallback2WithBSCHashCheck(callback RelayCrossChainPackageCallbackFunc) RelayCrossChainPackageCallbackFunc
+	SetupInitialState(height string, bbcHash []byte, bscHash []byte)
+	MonitorStakingModule(callback1 SyncBBCHeaderCallbackFunc, callback2 RelayCrossChainPackageCallbackFunc)
+	GetBBCStatus() (model.BbcStatus, error)
+	UpdateAfterSync(height uint64) error
+}
+
+type baseRelayer struct {
 	queries          *model.Queries
 	cfg              *config.Config
 	height           uint64
@@ -23,7 +31,13 @@ type Relayer struct {
 	BBCExecutor      *executor.BBCExecutor
 }
 
-func NewRelayer(cfg *config.Config, db model.DBTX) (*Relayer, error) {
+var _ Relayer = &baseRelayer{}
+
+func NewRelayer(cfg *config.Config, db model.DBTX) (Relayer, error) {
+	return newBaseRelayer(cfg, db)
+}
+
+func newBaseRelayer(cfg *config.Config, db model.DBTX) (*baseRelayer, error) {
 	bbcNetworkType := cfg.NetworkType
 	if bbcNetworkType != types.TestNetwork && bbcNetworkType != types.TmpTestNetwork && bbcNetworkType != types.ProdNetwork {
 		return nil, fmt.Errorf("unknown bbc network type %d", int(bbcNetworkType))
@@ -37,7 +51,7 @@ func NewRelayer(cfg *config.Config, db model.DBTX) (*Relayer, error) {
 		return nil, fmt.Errorf("NewBBCExecutor err: %s", err.Error())
 	}
 
-	relayer := &Relayer{
+	relayer := &baseRelayer{
 		queries:     model.New(db),
 		cfg:         cfg,
 		BBCExecutor: bbcExecutor,
@@ -55,7 +69,7 @@ type SyncBBCHeaderCallbackFunc func(header *common.Header)
 
 type RelayCrossChainPackageCallbackFunc func(pkg *executor.CrossChainPackage)
 
-func (r *Relayer) NewCallback2WithBSCHashCheck(callback RelayCrossChainPackageCallbackFunc) RelayCrossChainPackageCallbackFunc {
+func (r *baseRelayer) NewCallback2WithBSCHashCheck(callback RelayCrossChainPackageCallbackFunc) RelayCrossChainPackageCallbackFunc {
 	return func(pkg *executor.CrossChainPackage) {
 		bscChanged, newBscHash, _ := executor.FindBscValidatorSetChangePackage(r.bscHash, []*executor.CrossChainPackage{pkg})
 		if bscChanged {
@@ -65,7 +79,7 @@ func (r *Relayer) NewCallback2WithBSCHashCheck(callback RelayCrossChainPackageCa
 	}
 }
 
-func (r *Relayer) SetupInitialState(height string, bbcHash, bscHash []byte) {
+func (r *baseRelayer) SetupInitialState(height string, bbcHash, bscHash []byte) {
 	if height == "latest" {
 		r.height = r.getLatestHeight()
 	}
@@ -80,7 +94,7 @@ func (r *Relayer) SetupInitialState(height string, bbcHash, bscHash []byte) {
 	}
 }
 
-func (r *Relayer) MonitorStakingModule(callback1 SyncBBCHeaderCallbackFunc, callback2 RelayCrossChainPackageCallbackFunc) {
+func (r *baseRelayer) MonitorStakingModule(callback1 SyncBBCHeaderCallbackFunc, callback2 RelayCrossChainPackageCallbackFunc) {
 	height := r.height
 	bbcHash := r.bbcHash
 	if height == 0 {
@@ -148,7 +162,7 @@ func (r *Relayer) MonitorStakingModule(callback1 SyncBBCHeaderCallbackFunc, call
 	}
 }
 
-func (r *Relayer) waitForNextBlock(height uint64, advance bool) (uint64, bool) {
+func (r *baseRelayer) waitForNextBlock(height uint64, advance bool) (uint64, bool) {
 	sleepTime := time.Duration(r.BBCExecutor.Config.SleepMillisecondForWaitBlock * int64(time.Millisecond))
 	if !advance {
 		time.Sleep(sleepTime)
@@ -168,7 +182,7 @@ func (r *Relayer) waitForNextBlock(height uint64, advance bool) (uint64, bool) {
 	}
 }
 
-func (r *Relayer) getLatestHeight() uint64 {
+func (r *baseRelayer) getLatestHeight() uint64 {
 	abciInfo, err := r.BBCExecutor.GetClient().ABCIInfo()
 	if err != nil {
 		log.Errorf("Query latest height error: %s", err.Error())
@@ -177,14 +191,14 @@ func (r *Relayer) getLatestHeight() uint64 {
 	return uint64(abciInfo.Response.LastBlockHeight)
 }
 
-func (r *Relayer) GetBBCStatus() (model.BbcStatus, error) {
+func (r *baseRelayer) GetBBCStatus() (model.BbcStatus, error) {
 	if r.queries.IsNil() {
 		return model.BbcStatus{}, nil
 	}
 	return r.queries.GetBBCStatus(context.Background(), uint64(r.cfg.NetworkType))
 }
 
-func (r *Relayer) UpdateAfterSync(height uint64) error {
+func (r *baseRelayer) UpdateAfterSync(height uint64) error {
 	if r.queries.IsNil() {
 		return nil
 	}
@@ -195,7 +209,7 @@ func (r *Relayer) UpdateAfterSync(height uint64) error {
 }
 
 // initBBCStatus insert a row into bbc_status table when relayer starts for the first time
-func (r *Relayer) initBBCStatus(height uint64, bbcHash, bscHash []byte) error {
+func (r *baseRelayer) initBBCStatus(height uint64, bbcHash, bscHash []byte) error {
 	if r.queries.IsNil() {
 		return nil
 	}
@@ -208,7 +222,7 @@ func (r *Relayer) initBBCStatus(height uint64, bbcHash, bscHash []byte) error {
 }
 
 // updateHeight update height of bbc_status table
-func (r *Relayer) updateHeight(height uint64) error {
+func (r *baseRelayer) updateHeight(height uint64) error {
 	if r.queries.IsNil() {
 		return nil
 	}
@@ -219,7 +233,7 @@ func (r *Relayer) updateHeight(height uint64) error {
 }
 
 // updateBBCValsHash update bbc_val_hash of bbc_status table
-func (r *Relayer) updateBBCValsHash(bbcHash []byte) error {
+func (r *baseRelayer) updateBBCValsHash(bbcHash []byte) error {
 	if r.queries.IsNil() {
 		return nil
 	}
@@ -230,7 +244,7 @@ func (r *Relayer) updateBBCValsHash(bbcHash []byte) error {
 }
 
 // updateBSCValsHash update sequence and bsc_val_hash of bbc_status table
-func (r *Relayer) updateBSCValsHash(sequence uint64, bbcHash []byte) error {
+func (r *baseRelayer) updateBSCValsHash(sequence uint64, bbcHash []byte) error {
 	if r.queries.IsNil() {
 		return nil
 	}
@@ -241,7 +255,7 @@ func (r *Relayer) updateBSCValsHash(sequence uint64, bbcHash []byte) error {
 	})
 }
 
-func (r *Relayer) initFromDB() error {
+func (r *baseRelayer) initFromDB() error {
 	if r.queries.IsNil() {
 		r.bbcHash = make([]byte, 0)
 		r.bscHash = make([]byte, 0)

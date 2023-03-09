@@ -15,14 +15,62 @@ import (
 	"github.com/celer-network/goutils/log"
 )
 
-func TestRelayer(t *testing.T) {
+func genCallback1(r Relayer, t *testing.T) SyncBBCHeaderCallbackFunc {
+	return func(header *common.Header) {
+		t.Logf("callback1 at height %d", header.Height)
+		js, _ := json.Marshal(header)
+		t.Logf("header content %s", string(js))
+		bz, _ := header.EncodeHeader()
+		t.Logf("header bytes %x", bz)
+		abs, err := light.EncodeHeader(header)
+		if err != nil {
+			t.Errorf("EncodeHeaderProto err:%s", err.Error())
+		}
+		t.Logf("any bytes %x", abs)
+		err = r.UpdateAfterSync(uint64(header.Height))
+		if err != nil {
+			t.Errorf("UpdateAfterSync err:%s", err.Error())
+		}
+		pubkeys, sigs, signdatas := header.GetSigs()
+		var a, b, c string
+		for i := range pubkeys {
+			a += fmt.Sprintf("%x,", pubkeys[i])
+			b += fmt.Sprintf("%x,", sigs[i])
+			c += fmt.Sprintf("%x,", signdatas[i])
+		}
+		t.Logf("pubkeys: %s", a)
+		t.Logf("sigs: %s", b)
+		t.Logf("signdatas: %s", c)
+	}
+}
+
+func genCallback2(r Relayer, t *testing.T) RelayCrossChainPackageCallbackFunc {
+	return func(pkg *executor.CrossChainPackage) {
+		t.Logf("callback 2 at height %d", pkg.Height)
+		t.Logf("sequence %d", pkg.Sequence)
+		t.Logf("msg %x", pkg.Msg)
+		t.Logf("proof %x", pkg.Proof)
+		ok, set := pkg.ParseBSCValidatorSet()
+		if ok {
+			t.Logf("bsc validator set %v", set)
+		}
+	}
+}
+
+func TestMockRelayer(t *testing.T) {
+	r := newMockRelayer()
+	r.SetupInitialState("", []byte{1}, []byte{1})
+	r.MonitorStakingModule(genCallback1(r, t), r.NewCallback2WithBSCHashCheck(genCallback2(r, t)))
+}
+
+func TestBaseRelayer(t *testing.T) {
 	log.SetLevelByName("debug")
 	dbUrl := fmt.Sprintf("postgresql://root@%s/bbc_relayer?sslmode=disable", "localhost:26257")
 	db, err := sql.Open("postgres", dbUrl)
 	if err != nil {
 		t.Fatalf("open db, err:%s", err.Error())
 	}
-	r, err := NewRelayer(&config.Config{
+	r, err := newBaseRelayer(&config.Config{
 		NetworkType:                  0,
 		CrossChainConfig:             config.CrossChainConfig{SourceChainID: 1, DestChainID: 97},
 		RpcAddrs:                     []string{"tcp://data-seed-pre-0-s1.binance.org:80"},
@@ -52,44 +100,11 @@ func TestRelayer(t *testing.T) {
 		}
 	}
 	t.Logf("stopped at %d", left)
-	height := left
-	r.SetupInitialState(fmt.Sprintf("%d", height), []byte{1}, []byte{1})
+	r.SetupInitialState(fmt.Sprintf("%d", left), []byte{1}, []byte{1})
 	r.MonitorStakingModule(
-		func(header *common.Header) {
-			t.Logf("callback1 at height %d", header.Height)
-			js, _ := json.Marshal(header)
-			t.Logf("header content %s", string(js))
-			abs, err := light.EncodeHeader(header)
-			if err != nil {
-				t.Errorf("EncodeHeaderProto err:%s", err.Error())
-			}
-			t.Logf("any bytes %x", abs)
-			err = r.UpdateAfterSync(uint64(header.Height))
-			if err != nil {
-				t.Errorf("UpdateAfterSync err:%s", err.Error())
-			}
-			pubkeys, sigs, signdatas := header.GetSigs()
-			var a, b, c string
-			for i := range pubkeys {
-				a += fmt.Sprintf("%x,", pubkeys[i])
-				b += fmt.Sprintf("%x,", sigs[i])
-				c += fmt.Sprintf("%x,", signdatas[i])
-			}
-			t.Logf("pubkeys: %s", a)
-			t.Logf("sigs: %s", b)
-			t.Logf("signdatas: %s", c)
-		},
+		genCallback1(r, t),
 		r.NewCallback2WithBSCHashCheck(
-			func(pkg *executor.CrossChainPackage) {
-				t.Logf("callback 2 at height %d", pkg.Height)
-				t.Logf("sequence %d", pkg.Sequence)
-				t.Logf("msg %x", pkg.Msg)
-				t.Logf("proof %x", pkg.Proof)
-				ok, set := pkg.ParseBSCValidatorSet()
-				if ok {
-					t.Logf("bsc validator set %v", set)
-				}
-			},
+			genCallback2(r, t),
 		),
 	)
 }
