@@ -9,6 +9,7 @@ import (
 	"github.com/celer-network/bsc-relayer/common"
 	"github.com/celer-network/bsc-relayer/tendermint/light"
 	_ "github.com/lib/pq"
+	"github.com/tendermint/tendermint/types"
 
 	config "github.com/celer-network/bsc-relayer/config"
 	"github.com/celer-network/bsc-relayer/executor"
@@ -31,6 +32,13 @@ func genCallback1(r Relayer, t *testing.T) SyncBBCHeaderCallbackFunc {
 		if err != nil {
 			t.Errorf("UpdateAfterSync err:%s", err.Error())
 		}
+		vote := header.Commit.GetVote(1)
+		cVote := types.CanonicalizeVote(header.ChainID, vote)
+		bz = vote.SignBytes(header.ChainID)
+		t.Logf("sign data len %d", len(bz))
+		t.Logf("canonical vote %+v", cVote)
+		bz, _ = common.Cdc.MarshalBinaryLengthPrefixed(cVote.Timestamp)
+		t.Logf("timestamp data %x, len %d", bz, len(bz))
 		pubkeys, sigs, signdatas := header.GetSigs()
 		var a, b, c string
 		for i := range pubkeys {
@@ -100,7 +108,7 @@ func TestBaseRelayer(t *testing.T) {
 		}
 	}
 	t.Logf("stopped at %d", left)
-	r.SetupInitialState(fmt.Sprintf("%d", left), []byte{1}, []byte{1})
+	r.SetupInitialState(fmt.Sprintf("%d", left+1), []byte{1}, []byte{1})
 	r.MonitorStakingModule(
 		genCallback1(r, t),
 		r.NewCallback2WithBSCHashCheck(
