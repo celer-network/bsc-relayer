@@ -15,8 +15,8 @@ type Config struct {
 }
 
 type CrossChainConfig struct {
-	SourceChainID uint16 `json:"source_chain_id"`
-	DestChainID   uint16 `json:"dest_chain_id"`
+	SourceChainID uint16 `json:"source_chain_id" mapstructure:"source_chain_id"`
+	DestChainID   uint16 `json:"dest_chain_id" mapstructure:"dest_chain_id"`
 }
 
 func (cfg *Config) Validate() bool {
