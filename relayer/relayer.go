@@ -106,10 +106,9 @@ func (r *baseRelayer) MonitorStakingModule(callback1 SyncBBCHeaderCallbackFunc, 
 		height, bbcHash, r.bscHash)
 	advance := false
 	bbcChanged := false
+	needAnySync := false
 	var err error
-	// 1st header for bbc validator set change, at height
-	// 2nd header for ibc package(bsc validator set change), at height+1
-	var firstHeader, SecondHeader *common.Header
+	var header *common.Header
 	for ; ; height, advance = r.waitForNextBlock(height, advance) {
 		// check bbc validator set
 		bbcChanged, bbcHash, err = r.BBCExecutor.CheckValidatorSetChange(int64(height), bbcHash)
@@ -117,40 +116,39 @@ func (r *baseRelayer) MonitorStakingModule(callback1 SyncBBCHeaderCallbackFunc, 
 			log.Errorf("CheckValidatorSetChange err:%s", err.Error())
 			continue
 		}
-		// get first bbc header
-		if bbcChanged {
-			firstHeader, err = r.BBCExecutor.QueryTendermintHeader(int64(height))
-			if err != nil {
-				log.Errorf("QueryTendermintHeader err:%s", err.Error())
-				continue
-			}
+		header, err = r.BBCExecutor.QueryTendermintHeader(int64(height))
+		if err != nil {
+			log.Errorf("QueryTendermintHeader err:%s", err.Error())
+			continue
 		}
 
-		log.Debugf("Finding packages in channel 8 in height %d", height)
+		//log.Debugf("Finding packages in channel 8 in height %d", height)
 		pkgs, err := r.BBCExecutor.FindAllStakingModulePackages(int64(height))
 		if err != nil {
 			log.Errorf("FindAllStakingModulePackages err:%s", err.Error())
 			continue
 		}
 
-		// get second bbc header
-		foundSecond := false
-		SecondHeader, foundSecond, err = r.BBCExecutor.FindSyncableTendermintHeader(int64(height))
-		if err != nil {
-			log.Errorf("QueryTendermintHeader err:%s", err.Error())
-			continue
+		syncable := header.IsSyncable()
+		// after gotten all data, trigger callback function
+		if bbcChanged && !syncable {
+			log.Errorf("BBC validator set changed at %d, but header is not syncable. Will sync any forwarding syncable header asap.", height)
+			needAnySync = true
 		}
 
-		// after gotten all data, trigger callback function
-		if bbcChanged {
-			callback1(firstHeader)
+		if syncable && (bbcChanged || needAnySync || len(pkgs) > 0) {
+			callback1(header)
+			needAnySync = false
 			err = r.updateBBCValsHash(bbcHash)
 			if err != nil {
 				log.Errorf("UpdateBBCValsHash into db, err:%s", err.Error())
 			}
 		}
-		if len(pkgs) != 0 && foundSecond {
-			callback1(SecondHeader)
+		if len(pkgs) != 0 {
+			if !syncable {
+				log.Errorf("Cross-chain packages found at %d, but header is not syncable. Will sync any forwarding syncable header asap.", height)
+				needAnySync = true
+			}
 			for _, pkg := range pkgs {
 				callback2(pkg)
 				err = r.updateBSCValsHash(pkg.Sequence, r.bscHash)

@@ -73,6 +73,7 @@ func TestMockRelayer(t *testing.T) {
 
 func TestBaseRelayer(t *testing.T) {
 	log.SetLevelByName("debug")
+	createDatabaseIfNotExists("localhost:26257")
 	dbUrl := fmt.Sprintf("postgresql://root@%s/bbc_relayer?sslmode=disable", "localhost:26257")
 	db, err := sql.Open("postgres", dbUrl)
 	if err != nil {
@@ -90,11 +91,14 @@ func TestBaseRelayer(t *testing.T) {
 	t.Logf("latest block number %d", r.getLatestHeight())
 	right := r.getLatestHeight()
 	sr, _ := r.BBCExecutor.GetNextSequence(8, int64(right))
-	left := right - 10000
-	sl, _ := r.BBCExecutor.GetNextSequence(8, int64(left))
+	left := right
+	sl := sr
 	for sl == sr {
 		left -= 10000
 		sl, _ = r.BBCExecutor.GetNextSequence(8, int64(left))
+		if sl == 0 {
+			t.Fatalf("too old block height with staking module sequence 0")
+		}
 	}
 	t.Logf("next sequence %d", sr)
 	t.Logf("finding previous pkg from %d to %d", left, right)
@@ -115,4 +119,18 @@ func TestBaseRelayer(t *testing.T) {
 			genCallback2(r, t),
 		),
 	)
+}
+
+func createDatabaseIfNotExists(url string) {
+	log.Infoln("sync database")
+	dbUrl := fmt.Sprintf("postgresql://root@%s?sslmode=disable", url)
+	log.Infof("dialing db %s", dbUrl)
+	db, err := sql.Open("postgres", dbUrl)
+	if err != nil {
+		log.Panicf("sql open err %s", err.Error())
+	}
+	_, err = db.Exec("create database if not exists bbc_relayer;")
+	if err != nil {
+		log.Panicf("create database err %s", err.Error())
+	}
 }
