@@ -409,3 +409,21 @@ func (executor *BBCExecutor) CheckValidatorSetChange(height int64, preValidators
 
 	return validatorSetChanged, curValidatorsHash, nil
 }
+
+func (executor *BBCExecutor) FindSyncableTendermintHeader(height int64) (*common.Header, bool, error) {
+	h1, err := executor.QueryTendermintHeader(height)
+	if err != nil {
+		return nil, false, err
+	}
+	h2, err := executor.QueryTendermintHeader(height + 1)
+	if err != nil {
+		return nil, false, err
+	}
+	if h1.IsSyncable() {
+		return h1, true, nil
+	}
+	if h2.IsSyncable() {
+		return h2, true, nil
+	}
+	return nil, false, nil
+}

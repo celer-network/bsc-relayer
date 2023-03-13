@@ -26,6 +26,7 @@ var bbcValidatorHash = common2.Hex2Bytes("dfb10d5c6390b8d4c63cdeffc6a27ebae82ccd
 var bscValidatorHash = common2.Hex2Bytes("05ed92dab8ad5fc62ecbd7513892ec9b50d4f9d20242360b2b56ef22233afcb5")
 
 var validHeight = map[uint64]bool{36647110: true, 37055763: true}
+var seqs = map[uint64]uint64{36647110: 1733, 37055763: 1747}
 var headers = map[uint64][]byte{36647110: header36647110, 36647111: header36647111, 37055763: header37055763, 37055764: header37055764}
 var msgs = map[uint64][]byte{1733: msgFor1733, 1747: msgFor1747}
 var proofs = map[uint64][]byte{1733: proofFor1733, 1747: proofFor1747}
@@ -59,6 +60,7 @@ func (m *mockRelayer) SetupInitialState(height string, bbcHash, bscHash []byte) 
 	h, err := strconv.Atoi(height)
 	if err == nil && validHeight[uint64(h)] {
 		m.height = uint64(h)
+		m.sequence = seqs[m.height]
 	}
 	if len(bbcHash) != 0 {
 		m.bbcHash = bbcHash

@@ -134,7 +134,8 @@ func (r *baseRelayer) MonitorStakingModule(callback1 SyncBBCHeaderCallbackFunc, 
 		}
 
 		// get second bbc header
-		SecondHeader, err = r.BBCExecutor.QueryTendermintHeader(int64(height) + 1)
+		foundSecond := false
+		SecondHeader, foundSecond, err = r.BBCExecutor.FindSyncableTendermintHeader(int64(height))
 		if err != nil {
 			log.Errorf("QueryTendermintHeader err:%s", err.Error())
 			continue
@@ -148,7 +149,7 @@ func (r *baseRelayer) MonitorStakingModule(callback1 SyncBBCHeaderCallbackFunc, 
 				log.Errorf("UpdateBBCValsHash into db, err:%s", err.Error())
 			}
 		}
-		if len(pkgs) != 0 {
+		if len(pkgs) != 0 && foundSecond {
 			callback1(SecondHeader)
 			for _, pkg := range pkgs {
 				callback2(pkg)

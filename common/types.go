@@ -118,3 +118,19 @@ func (h *Header) GetSigs() (pubkeys, sigs, signdatas [][]byte) {
 	}
 	return
 }
+
+// a header which has more than 8 sigs of sign data of which length is 122 is valid
+func (h *Header) IsSyncable() bool {
+	_, _, signdatas := h.GetSigs()
+	validNum := 0
+	for _, data := range signdatas {
+		if len(data) == 122 {
+			validNum++
+		}
+	}
+	if validNum >= 8 {
+		return true
+	} else {
+		return false
+	}
+}
