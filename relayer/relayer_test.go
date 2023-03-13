@@ -112,7 +112,7 @@ func TestBaseRelayer(t *testing.T) {
 		}
 	}
 	t.Logf("stopped at %d", left)
-	r.SetupInitialState(fmt.Sprintf("%d", left+1), []byte{1}, []byte{1})
+	r.SetupInitialState(fmt.Sprintf("%d", 37092866), []byte{1}, []byte{1})
 	r.MonitorStakingModule(
 		genCallback1(r, t),
 		r.NewCallback2WithBSCHashCheck(

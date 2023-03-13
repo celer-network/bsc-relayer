@@ -122,12 +122,12 @@ func (r *baseRelayer) MonitorStakingModule(callback1 SyncBBCHeaderCallbackFunc, 
 			continue
 		}
 
-		//log.Debugf("Finding packages in channel 8 in height %d", height)
 		pkgs, err := r.BBCExecutor.FindAllStakingModulePackages(int64(height))
 		if err != nil {
 			log.Errorf("FindAllStakingModulePackages err:%s", err.Error())
 			continue
 		}
+		log.Infof("found %d packages in channel 8 at height %d", len(pkgs), height)
 
 		syncable := header.IsSyncable()
 		// after gotten all data, trigger callback function
