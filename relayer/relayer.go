@@ -274,7 +274,7 @@ func (r *baseRelayer) initFromDB() error {
 	if err != nil {
 		return err
 	}
-	r.height = status.Height
+	r.height = status.Height + 1
 	r.bbcHash = ethcmm.Hex2Bytes(status.BbcValsHash)
 	r.bscHash = ethcmm.Hex2Bytes(status.BscValsHash)
 	return nil
