@@ -56,7 +56,7 @@ func (q *Queries) InitBBCStatus(ctx context.Context, arg InitBBCStatusParams) er
 const updateAfterSync = `-- name: UpdateAfterSync :exec
 update bbc_status
     set synced_at = $2
-where network_id = $1
+where network_id = $1 and $2 > synced_at
 `
 
 type UpdateAfterSyncParams struct {

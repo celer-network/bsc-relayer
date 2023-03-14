@@ -32,7 +32,7 @@ func genCallback1(r Relayer, t *testing.T) SyncBBCHeaderCallbackFunc {
 		if err != nil {
 			t.Errorf("UpdateAfterSync err:%s", err.Error())
 		}
-		vote := header.Commit.GetVote(1)
+		vote := header.Commit.GetVote(2)
 		cVote := types.CanonicalizeVote(header.ChainID, vote)
 		bz = vote.SignBytes(header.ChainID)
 		t.Logf("sign data len %d", len(bz))
@@ -112,7 +112,7 @@ func TestBaseRelayer(t *testing.T) {
 		}
 	}
 	t.Logf("stopped at %d", left)
-	r.SetupInitialState(fmt.Sprintf("%d", 37092866), []byte{1}, []byte{1})
+	r.SetupInitialState(fmt.Sprintf("%d", left+1), []byte{1}, []byte{1})
 	r.MonitorStakingModule(
 		genCallback1(r, t),
 		r.NewCallback2WithBSCHashCheck(

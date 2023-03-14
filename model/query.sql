@@ -28,4 +28,4 @@ where network_id = $1;
 -- name: UpdateAfterSync :exec
 update bbc_status
     set synced_at = $2
-where network_id = $1;
+where network_id = $1 and $2 > synced_at;
