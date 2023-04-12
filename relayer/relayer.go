@@ -19,6 +19,10 @@ type Relayer interface {
 	// NewCallback2WithBSCHashCheck returns a new RelayCrossChainPackageCallbackFunc by adding additional logic of checking
 	// whether BSC hash changed to given callback function. As a result, the new callback function would trigger old one
 	// if and only if BSC hash changed.
+	//
+	// Note that its design purpose is to only relay cross-chain packages of staking module when bsc vals set changed.
+	// However, the contract requires that cross-chain packages of the same module should be relayed in sequence.
+	// So this function should not be used.
 	NewCallback2WithBSCHashCheck(callback RelayCrossChainPackageCallbackFunc) RelayCrossChainPackageCallbackFunc
 	// SetupInitialState is used to override initial state read from underlying db.
 	SetupInitialState(height string, bbcHash []byte, bscHash []byte)
