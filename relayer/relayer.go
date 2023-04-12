@@ -16,10 +16,17 @@ import (
 )
 
 type Relayer interface {
+	// NewCallback2WithBSCHashCheck returns a new RelayCrossChainPackageCallbackFunc by adding additional logic of checking
+	// whether BSC hash changed to given callback function. As a result, the new callback function would trigger old one
+	// if and only if BSC hash changed.
 	NewCallback2WithBSCHashCheck(callback RelayCrossChainPackageCallbackFunc) RelayCrossChainPackageCallbackFunc
+	// SetupInitialState is used to override initial state read from underlying db.
 	SetupInitialState(height string, bbcHash []byte, bscHash []byte)
+	// MonitorStakingModule is the main service provided by Relayer, to start monitoring staking module of BBC.
 	MonitorStakingModule(callback1 SyncBBCHeaderCallbackFunc, callback2 RelayCrossChainPackageCallbackFunc)
+	// GetBBCStatus returns the current monitored status of BBC.
 	GetBBCStatus() (model.BbcStatus, error)
+	// UpdateAfterSync should be called every time when a BBC header is synced.
 	UpdateAfterSync(height uint64) error
 }
 
@@ -65,10 +72,15 @@ func newBaseRelayer(cfg *config.Config, db model.DBTX) (*baseRelayer, error) {
 	return relayer, nil
 }
 
+// callback function for syncing bbc header
 type SyncBBCHeaderCallbackFunc func(header *common.Header)
 
+// callback function for relaying cross chain package
 type RelayCrossChainPackageCallbackFunc func(pkg *executor.CrossChainPackage)
 
+// NewCallback2WithBSCHashCheck returns a new RelayCrossChainPackageCallbackFunc by adding additional logic of checking
+// whether BSC hash changed to given callback function. As a result, the new callback function would trigger old one
+// if and only if BSC hash changed.
 func (r *baseRelayer) NewCallback2WithBSCHashCheck(callback RelayCrossChainPackageCallbackFunc) RelayCrossChainPackageCallbackFunc {
 	return func(pkg *executor.CrossChainPackage) {
 		bscChanged, newBscHash, _ := executor.FindBscValidatorSetChangePackage(r.bscHash, []*executor.CrossChainPackage{pkg})
@@ -79,6 +91,7 @@ func (r *baseRelayer) NewCallback2WithBSCHashCheck(callback RelayCrossChainPacka
 	}
 }
 
+// SetupInitialState is used to override initial state read from underlying db.
 func (r *baseRelayer) SetupInitialState(height string, bbcHash, bscHash []byte) {
 	if height == "latest" {
 		r.height = r.getLatestHeight()
@@ -94,6 +107,7 @@ func (r *baseRelayer) SetupInitialState(height string, bbcHash, bscHash []byte) 
 	}
 }
 
+// MonitorStakingModule is the main service provided by Relayer, to start monitoring staking module of BBC.
 func (r *baseRelayer) MonitorStakingModule(callback1 SyncBBCHeaderCallbackFunc, callback2 RelayCrossChainPackageCallbackFunc) {
 	height := r.height
 	bbcHash := r.bbcHash
@@ -190,6 +204,7 @@ func (r *baseRelayer) getLatestHeight() uint64 {
 	return uint64(abciInfo.Response.LastBlockHeight)
 }
 
+// GetBBCStatus returns the current monitored status of BBC.
 func (r *baseRelayer) GetBBCStatus() (model.BbcStatus, error) {
 	if r.queries.IsNil() {
 		return model.BbcStatus{}, nil
@@ -197,6 +212,7 @@ func (r *baseRelayer) GetBBCStatus() (model.BbcStatus, error) {
 	return r.queries.GetBBCStatus(context.Background(), uint64(r.cfg.NetworkType))
 }
 
+// UpdateAfterSync should be called every time when a BBC header is synced successfully.
 func (r *baseRelayer) UpdateAfterSync(height uint64) error {
 	if r.queries.IsNil() {
 		return nil
@@ -254,6 +270,7 @@ func (r *baseRelayer) updateBSCValsHash(sequence uint64, bbcHash []byte) error {
 	})
 }
 
+// initFromDB retrieve height, bbcHash, bscHash from underlying db.
 func (r *baseRelayer) initFromDB() error {
 	if r.queries.IsNil() {
 		r.bbcHash = make([]byte, 0)

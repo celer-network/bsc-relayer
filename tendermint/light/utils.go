@@ -156,6 +156,7 @@ func (vsp *ValidatorSet) FromType(vs *tmtypes.ValidatorSet) (*ValidatorSet, erro
 	return vsp, nil
 }
 
+// FromType converts an old versioned tendermint header to a proto defined tendermint header.
 func (tmh *TmHeader) FromType(h *common.Header) (*TmHeader, error) {
 	if h == nil {
 		return tmh, fmt.Errorf("nil header")
@@ -169,6 +170,7 @@ func (tmh *TmHeader) FromType(h *common.Header) (*TmHeader, error) {
 	return tmh, nil
 }
 
+// EncodeHeader returns encoding result needed by contract, of which underlying value is an anypb.Any.
 func EncodeHeader(h *common.Header) ([]byte, error) {
 	tmh, err := new(TmHeader).FromType(h)
 	if err != nil {
